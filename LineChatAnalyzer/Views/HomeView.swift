@@ -6,6 +6,7 @@ struct HomeView: View {
     @Query(sort: \ChatSession.importDate, order: .reverse) private var sessions: [ChatSession]
 
     @State private var showImport = false
+    @State private var showGlobalQuery = false
     @State private var searchText = ""
     @State private var sessionToDelete: ChatSession?
     @State private var showDeleteAlert = false
@@ -32,6 +33,16 @@ struct HomeView: View {
             .navigationTitle("LINE アナライザー")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    // 横断検索ボタン（トーク存在時のみ表示）
+                    if !sessions.isEmpty {
+                        Button(action: { showGlobalQuery = true }) {
+                            Image(systemName: "arrow.triangle.branch")
+                                .font(.title3)
+                                .foregroundStyle(Theme.accent)
+                        }
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: { showImport = true }) {
                         Image(systemName: "plus.circle.fill")
@@ -43,6 +54,9 @@ struct HomeView: View {
             .searchable(text: $searchText, prompt: "トーク名・メンバーで検索")
             .sheet(isPresented: $showImport) {
                 ImportView()
+            }
+            .sheet(isPresented: $showGlobalQuery) {
+                GlobalQueryView()
             }
             .alert("削除の確認", isPresented: $showDeleteAlert, presenting: sessionToDelete) { session in
                 Button("削除", role: .destructive) { deleteSession(session) }

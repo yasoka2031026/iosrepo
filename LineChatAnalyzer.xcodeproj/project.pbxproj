@@ -22,6 +22,7 @@
 		B1A1A1A1A1A1A1A1A1A1A113 /* LINEParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A113 /* LINEParser.swift */; };
 		B1A1A1A1A1A1A1A1A1A1A114 /* ClaudeAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A114 /* ClaudeAPIService.swift */; };
 		B1A1A1A1A1A1A1A1A1A1A115 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A115 /* Assets.xcassets */; };
+		B1A1A1A1A1A1A1A1A1A1A116 /* GlobalQueryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A1A1A1A1A1A116GQ /* GlobalQueryView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,6 +41,7 @@
 		A1A1A1A1A1A1A113 /* LINEParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LINEParser.swift; sourceTree = "<group>"; };
 		A1A1A1A1A1A1A114 /* ClaudeAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeAPIService.swift; sourceTree = "<group>"; };
 		A1A1A1A1A1A1A115 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A1A1A1A1A1A1A116GQ /* GlobalQueryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalQueryView.swift; sourceTree = "<group>"; };
 		A1A1A1A1A1A1A116 /* LineChatAnalyzer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LineChatAnalyzer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -91,6 +93,7 @@
 				A1A1A1A1A1A1A106 /* HomeView.swift */,
 				A1A1A1A1A107 /* SessionDetailView.swift */,
 				A1A1A1A1A108 /* QueryView.swift */,
+				A1A1A1A1A1A1A116GQ /* GlobalQueryView.swift */,
 				A1A1A1A1A109 /* ImportView.swift */,
 				A1A1A1A1A110 /* SettingsView.swift */,
 				C1C1C1C1C1C1C1C1C1C1C104 /* Components */,
@@ -208,6 +211,7 @@
 				B1A1A1A1A1A1A1A1A1A1A112 /* MessageRow.swift in Sources */,
 				B1A1A1A1A1A1A1A1A1A1A113 /* LINEParser.swift in Sources */,
 				B1A1A1A1A1A1A1A1A1A1A114 /* ClaudeAPIService.swift in Sources */,
+				B1A1A1A1A1A1A1A1A1A1A116 /* GlobalQueryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
