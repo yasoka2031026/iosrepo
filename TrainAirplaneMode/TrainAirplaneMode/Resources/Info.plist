@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Background Location (必須: バックグラウンドで電車を検知するために必要) -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>location</string>
+    </array>
+
+    <!-- 位置情報の利用許可メッセージ -->
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>電車の乗車を検知するために位置情報を使用します。</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>バックグラウンドでも電車の乗降を検知するために位置情報を常時使用します。機内モードを促す通知を逃さないようにするため「常に許可」を選択してください。</string>
+    <key>NSLocationAlwaysUsageDescription</key>
+    <string>バックグラウンドでも電車の乗降を検知するために位置情報を常時使用します。</string>
+</dict>
+</plist>
