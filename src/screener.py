@@ -4,6 +4,7 @@ Supports both JP (.T suffix) and US tickers.
 """
 import yfinance as yf
 import pandas as pd
+from datetime import datetime, timedelta
 from typing import Optional
 
 # Curated seed list of well-known high-dividend JP stocks
@@ -90,6 +91,88 @@ def screen_high_dividend(
 
     df = pd.DataFrame(rows).sort_values("dividend_yield_pct", ascending=False)
     return df.head(max_results).reset_index(drop=True)
+
+
+def get_usd_jpy() -> tuple[float, str]:
+    """Fetch live USD/JPY rate via yfinance. Returns (rate, timestamp_str)."""
+    try:
+        t = yf.Ticker("USDJPY=X")
+        info = t.info
+        rate = info.get("regularMarketPrice") or info.get("previousClose") or 155.0
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+        return float(rate), ts
+    except Exception:
+        return 155.0, "取得失敗"
+
+
+def _infer_payment_months(dividends: pd.Series) -> list[int]:
+    """
+    From historical dividend Series (DatetimeIndex), infer which calendar months
+    dividends are typically paid. Uses last 2 years of data.
+    """
+    if dividends.empty:
+        return []
+    cutoff = pd.Timestamp.now() - pd.DateOffset(years=2)
+    recent = dividends[dividends.index >= cutoff]
+    if recent.empty:
+        recent = dividends.tail(6)
+    months = sorted(set(recent.index.month.tolist()))
+    return months
+
+
+def build_dividend_calendar(
+    df_holdings: pd.DataFrame,
+    usd_jpy: float = 155.0,
+) -> pd.DataFrame:
+    """
+    Build a forward-looking 12-month dividend calendar from portfolio holdings.
+
+    Returns DataFrame with columns:
+        year_month (YYYY-MM str), ticker, name, income_jpy
+    """
+    today = datetime.today()
+    rows = []
+
+    for _, holding in df_holdings.iterrows():
+        ticker = holding["ticker"]
+        name = holding.get("name", ticker)
+        shares = holding["shares"]
+        currency = "JPY" if ticker.endswith(".T") else "USD"
+
+        try:
+            t = yf.Ticker(ticker)
+            dividends = t.dividends
+        except Exception:
+            continue
+
+        if dividends.empty:
+            continue
+
+        # Last paid dividend amount per share
+        last_div_amount = float(dividends.iloc[-1])
+        payment_months = _infer_payment_months(dividends)
+        if not payment_months:
+            continue
+
+        # Project next 12 months
+        for offset in range(13):
+            target = today + timedelta(days=30 * offset)
+            if target.month in payment_months:
+                ym = target.strftime("%Y-%m")
+                income = last_div_amount * shares
+                income_jpy = income * usd_jpy if currency == "USD" else income
+                rows.append({
+                    "year_month": ym,
+                    "ticker": ticker,
+                    "name": name,
+                    "income_jpy": round(income_jpy, 0),
+                })
+
+    if not rows:
+        return pd.DataFrame(columns=["year_month", "ticker", "name", "income_jpy"])
+
+    df = pd.DataFrame(rows).drop_duplicates(subset=["year_month", "ticker"])
+    return df.sort_values(["year_month", "ticker"]).reset_index(drop=True)
 
 
 def enrich_portfolio(df_holdings: pd.DataFrame) -> pd.DataFrame:

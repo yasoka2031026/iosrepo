@@ -13,10 +13,10 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 from portfolio import add_holding, delete_holding, get_holdings, clear_all
-from screener import enrich_portfolio, screen_high_dividend
+from screener import enrich_portfolio, screen_high_dividend, get_usd_jpy, build_dividend_calendar
 
 GOAL_MONTHLY_JPY = 60_000
-USD_JPY = 155.0  # 為替レート(固定。将来的にAPI取得も可)
+_FALLBACK_USD_JPY = 155.0
 
 st.set_page_config(
     page_title="不労所得ダッシュボード",
@@ -37,6 +37,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ── USD/JPY 為替レート（キャッシュ付き自動取得）────────────────────────────
+@st.cache_data(ttl=3600, show_spinner=False)
+def _fetch_rate() -> tuple[float, str]:
+    return get_usd_jpy()
+
+
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.title("💴 不労所得ダッシュボード")
@@ -44,17 +50,27 @@ with st.sidebar:
     st.divider()
     page = st.radio(
         "ページ",
-        ["📊 ポートフォリオ", "🔍 高配当株スクリーナー"],
+        ["📊 ポートフォリオ", "🔍 高配当株スクリーナー", "📅 配当カレンダー"],
         label_visibility="collapsed",
     )
     st.divider()
     st.caption(f"目標: ¥{GOAL_MONTHLY_JPY:,} / 月")
-    st.caption(f"USD/JPY 換算レート: {USD_JPY}")
-    usd_jpy = st.number_input("USD/JPY レートを変更", min_value=50.0, max_value=300.0,
-                               value=USD_JPY, step=1.0, key="usd_jpy_input")
+
+    # 為替レート自動取得
+    auto_rate, rate_ts = _fetch_rate()
+    st.caption(f"USD/JPY 自動取得: {auto_rate:.2f}  ({rate_ts})")
+    if st.button("為替レートを今すぐ更新", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+    usd_jpy = st.number_input(
+        "手動で上書き（空欄なら自動値を使用）",
+        min_value=50.0, max_value=300.0,
+        value=float(auto_rate), step=0.5,
+        key="usd_jpy_input",
+    )
 
 
-USD_JPY = usd_jpy  # sidebar で上書き可能
+USD_JPY = usd_jpy
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -339,3 +355,109 @@ elif page == "🔍 高配当株スクリーナー":
                     st.success(f"{sel_ticker} をポートフォリオに追加しました")
     else:
         st.info("条件を設定して「スクリーニング実行」ボタンを押してください。")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PAGE 3: 配当カレンダー
+# ─────────────────────────────────────────────────────────────────────────────
+elif page == "📅 配当カレンダー":
+    st.header("📅 配当カレンダー")
+    st.caption("保有銘柄の過去実績から今後12ヶ月の配当入金予定を予測します")
+
+    holdings_raw = get_holdings()
+    if holdings_raw.empty:
+        st.info("ポートフォリオに銘柄が登録されていません。「📊 ポートフォリオ」から追加してください。")
+        st.stop()
+
+    with st.spinner("配当履歴を取得して入金スケジュールを組み立て中..."):
+        cal_df = build_dividend_calendar(holdings_raw, usd_jpy=USD_JPY)
+
+    if cal_df.empty:
+        st.warning("配当履歴データを取得できませんでした。銘柄によっては yfinance が未対応の場合があります。")
+        st.stop()
+
+    # ── 月別合計サマリー ──────────────────────────────────────────────────
+    monthly_totals = (
+        cal_df.groupby("year_month")["income_jpy"]
+        .sum()
+        .reset_index()
+        .rename(columns={"year_month": "月", "income_jpy": "合計配当収入(円)"})
+    )
+
+    st.subheader("月別予想配当収入")
+    fig_monthly = go.Figure()
+    fig_monthly.add_trace(go.Bar(
+        x=monthly_totals["月"],
+        y=monthly_totals["合計配当収入(円)"],
+        marker_color=[
+            "#2ecc71" if v >= GOAL_MONTHLY_JPY else "#3498db"
+            for v in monthly_totals["合計配当収入(円)"]
+        ],
+        text=[f"¥{v:,.0f}" for v in monthly_totals["合計配当収入(円)"]],
+        textposition="outside",
+    ))
+    fig_monthly.add_hline(
+        y=GOAL_MONTHLY_JPY,
+        line_dash="dash",
+        line_color="#e74c3c",
+        annotation_text="月次目標 ¥60,000",
+        annotation_position="top right",
+    )
+    fig_monthly.update_layout(
+        xaxis_title="",
+        yaxis_title="配当収入 (円)",
+        margin=dict(t=30, b=10),
+        xaxis=dict(tickangle=-30),
+    )
+    st.plotly_chart(fig_monthly, use_container_width=True)
+
+    # ── ヒートマップ（銘柄 × 月） ─────────────────────────────────────────
+    st.subheader("銘柄別・月別配当ヒートマップ")
+
+    pivot = cal_df.pivot_table(
+        index="name",
+        columns="year_month",
+        values="income_jpy",
+        aggfunc="sum",
+        fill_value=0,
+    )
+
+    # 列を時系列順にソート
+    pivot = pivot[sorted(pivot.columns)]
+
+    fig_heat = go.Figure(go.Heatmap(
+        z=pivot.values,
+        x=pivot.columns.tolist(),
+        y=pivot.index.tolist(),
+        colorscale="Greens",
+        text=[[f"¥{v:,.0f}" if v > 0 else "" for v in row] for row in pivot.values],
+        texttemplate="%{text}",
+        hovertemplate="銘柄: %{y}<br>月: %{x}<br>配当: ¥%{z:,.0f}<extra></extra>",
+        colorbar=dict(title="円"),
+    ))
+    fig_heat.update_layout(
+        xaxis_title="",
+        yaxis_title="",
+        margin=dict(t=10, b=10),
+        xaxis=dict(tickangle=-30),
+        height=max(300, 60 * len(pivot)),
+    )
+    st.plotly_chart(fig_heat, use_container_width=True)
+
+    # ── 直近の入金予定リスト ───────────────────────────────────────────────
+    st.subheader("入金予定一覧")
+    import datetime as dt
+    current_ym = dt.datetime.today().strftime("%Y-%m")
+    upcoming = cal_df[cal_df["year_month"] >= current_ym].copy()
+    upcoming = upcoming.rename(columns={
+        "year_month": "入金予定月",
+        "ticker": "ティッカー",
+        "name": "銘柄名",
+        "income_jpy": "予想配当収入(円)",
+    })
+    st.dataframe(upcoming, use_container_width=True, hide_index=True)
+
+    st.info(
+        "予測は過去の配当実績の支払い月パターンと直近の配当額から算出しています。"
+        "実際の入金日・金額は企業の発表により変わります。"
+    )
