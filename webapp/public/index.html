@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>メモリ / SSD 平均価格トラッカー</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>メモリ / SSD 平均価格トラッカー</h1>
+    <p class="sub">韓国・中国・アメリカ・台湾・日本の主要メーカーの販売価格動向から、等間隔で平均価格を取得</p>
+  </header>
+
+  <main>
+    <section class="controls">
+      <div class="field">
+        <label for="category">製品カテゴリ</label>
+        <select id="category"></select>
+      </div>
+      <div class="field">
+        <label for="country">国 / 地域</label>
+        <select id="country">
+          <option value="">すべて</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="interval">取得間隔（等間隔）</label>
+        <select id="interval"></select>
+      </div>
+      <div class="field">
+        <label for="days">期間（日数）</label>
+        <select id="days">
+          <option value="90">90日</option>
+          <option value="180" selected>180日</option>
+          <option value="365">365日</option>
+          <option value="730">730日</option>
+        </select>
+      </div>
+      <button id="reload">更新</button>
+    </section>
+
+    <section class="summary" id="summary"></section>
+
+    <section class="chart-wrap">
+      <div id="chart"></div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <section class="table-wrap">
+      <table id="table">
+        <thead>
+          <tr>
+            <th>期間開始</th><th>期間終了</th><th>平均価格</th><th>最小</th><th>最大</th><th>サンプル数</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <p class="note" id="note"></p>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

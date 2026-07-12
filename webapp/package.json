@@ -1,0 +1,19 @@
+{
+  "name": "memory-ssd-price-tracker",
+  "version": "1.0.0",
+  "description": "Web app that fetches equal-interval average price trends of major memory/SSD manufacturers (Korea, China, USA, Taiwan, Japan).",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js",
+    "loop": "node test/loop-check.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "license": "MIT"
+}
