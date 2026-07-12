@@ -68,7 +68,13 @@ async function main() {
       assert(meta.status === 200, 'meta');
       const root = await request(port, '/');
       assert(root.status === 200 && root.body.includes('<html'), 'root html');
-      checks += 3;
+      // Live endpoint must always answer 200 with an `available` flag, even when the
+      // upstream free source is unreachable (it degrades, never crashes).
+      const live = await request(port, '/api/prices/live?category=NAND');
+      assert(live.status === 200, 'live status');
+      const liveData = JSON.parse(live.body);
+      assert(typeof liveData.available === 'boolean', 'live available flag');
+      checks += 4;
 
       for (const category of categories) {
         for (const country of countries) {

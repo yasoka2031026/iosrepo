@@ -3,6 +3,8 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import { averagePrices, defaultRange, INTERVALS } from './priceService.js';
 import { MANUFACTURERS, COUNTRIES, CATEGORIES } from './manufacturers.js';
+import { fetchLiveAverages, LIVE_ENDPOINT } from './providers/livePriceSource.js';
+import { appendSnapshot, snapshotCount } from './store.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,6 +58,46 @@ export function createApp() {
       res.json({ range, ...result });
     } catch (err) {
       res.status(400).json({ error: err.message });
+    }
+  });
+
+  // Current real prices from the free public source (PricePerGig).
+  // Falls back gracefully: if the source is unreachable (e.g. restricted network),
+  // returns { available: false, reason } instead of failing.
+  app.get('/api/prices/live', async (req, res) => {
+    const category = req.query.category || 'NAND';
+    if (!CATEGORIES[category]) {
+      return res.status(400).json({ error: `Unknown category: ${category}` });
+    }
+    try {
+      const live = await fetchLiveAverages(category);
+      res.json({ available: true, endpoint: LIVE_ENDPOINT, ...live });
+    } catch (err) {
+      res.json({
+        available: false,
+        endpoint: LIVE_ENDPOINT,
+        reason: err.message,
+        note: 'Live source unreachable from this host; the modeled series is used instead.',
+      });
+    }
+  });
+
+  // Record a snapshot of current real prices into the append-only store so that
+  // equal-interval history accumulates from the free source over time.
+  app.post('/api/prices/refresh', async (req, res) => {
+    const category = (req.query.category || req.body?.category || 'NAND');
+    if (!CATEGORIES[category]) {
+      return res.status(400).json({ error: `Unknown category: ${category}` });
+    }
+    try {
+      const live = await fetchLiveAverages(category);
+      if (!live.manufacturers.length) {
+        return res.json({ recorded: false, reason: 'no matching listings', ...live });
+      }
+      const rec = appendSnapshot({ category, ...live });
+      res.json({ recorded: true, snapshot: rec, totalSnapshots: snapshotCount({ category }) });
+    } catch (err) {
+      res.status(502).json({ recorded: false, reason: err.message });
     }
   });
 

@@ -209,10 +209,53 @@ async function refresh() {
   }
 }
 
+const COUNTRY_NAMES = { KR: '韓国', CN: '中国', US: 'アメリカ', TW: '台湾', JP: '日本' };
+
+async function loadLive() {
+  const status = $('live-status');
+  const cards = $('live-cards');
+  status.className = 'live-status';
+  status.textContent = '取得中…';
+  cards.innerHTML = '';
+  try {
+    const category = $('category').value;
+    const data = await getJSON('/api/prices/live?category=' + encodeURIComponent(category));
+    if (!data.available) {
+      status.className = 'live-status warn';
+      status.textContent =
+        `現在この環境から公開ソース(${data.endpoint})へ接続できません（${data.reason}）。` +
+        `オープンなネットワーク環境にデプロイすると実売価格が表示されます。`;
+      return;
+    }
+    if (!data.manufacturers.length) {
+      status.textContent = `該当する ${category} の実売リストが見つかりませんでした（取得元: ${data.source}）。`;
+      return;
+    }
+    status.textContent =
+      `取得元: ${data.source} ／ 取得時刻: ${new Date(data.fetchedAt).toLocaleString('ja-JP')} ／ ` +
+      `${data.rows} 件のリストを集計`;
+    data.manufacturers
+      .sort((a, b) => a.pricePerGB - b.pricePerGB)
+      .forEach((m) => {
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.innerHTML =
+          `<div class="k">${COUNTRY_NAMES[m.country] || m.country} · ${m.name}</div>` +
+          `<div class="v">$${m.pricePerGB.toFixed(4)}<span style="font-size:12px;color:var(--muted)"> /GB</span></div>` +
+          `<div class="k">${m.samples} サンプル</div>`;
+        cards.appendChild(el);
+      });
+  } catch (err) {
+    status.className = 'live-status warn';
+    status.textContent = 'エラー: ' + err.message;
+  }
+}
+
 (async function init() {
   try {
     await loadMeta();
     $('reload').addEventListener('click', refresh);
+    $('live-load').addEventListener('click', loadLive);
     ['category', 'country', 'interval', 'days'].forEach((id) =>
       $(id).addEventListener('change', refresh)
     );

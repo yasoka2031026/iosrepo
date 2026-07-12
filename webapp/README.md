@@ -50,8 +50,31 @@ npm run loop       # サーバを起動し全エンドポイントをループ�
 
 ## データソースについて
 
-現在の価格データは、実市場フィード（TrendForce / DRAMeXchange のスポット・
-コントラクト価格等）を模した **決定論的ジェネレータ**（`src/providers/priceSource.js`）で
-生成しています。これらの商用フィードは本環境から直接取得できないためです。
-実フィードに差し替える場合は `fetchSeries()` を非同期実装に置き換えるだけで、
-集計・API・UI はそのまま利用できます。
+本アプリは **2種類** のデータソースを持ちます。
+
+### 1. 実売価格（無料公開ソース）— `src/providers/livePriceSource.js`
+
+- **PricePerGig 無料 JSON API**（`https://api.pricepergig.com/drives`、認証不要・約30req/分）から
+  現在の SSD / メモリの実売リストを取得し、メーカー別の平均価格（USD/GB）に正規化します。
+- エンドポイント:
+  - `GET /api/prices/live?category=NAND` … 現在の実売価格（メーカー別）
+  - `POST /api/prices/refresh?category=NAND` … 現在価格をスナップショットとして記録
+- 公開ソースは **現在価格のみ** を提供するため、`POST /api/prices/refresh` を等間隔
+  （cron 等）で呼ぶと、`data/snapshots.jsonl` に実データの履歴が蓄積され、等間隔の
+  実データ推移を集計できるようになります（`src/store.js`）。
+
+> 注: 実行環境の**送信ネットワークが制限されている場合**（今回の開発サンドボックス等）、
+> 公開ソースへ到達できず `/api/prices/live` は `{ available:false, reason }` を返します。
+> オープンなネットワークでデプロイすると自動的に実売価格が有効になります。
+
+### 2. モデル系列（オフライン・フォールバック）— `src/providers/priceSource.js`
+
+- メモリ市況の周期性・季節性を反映した **決定論的ジェネレータ**。ネットワーク不要で
+  再現性があるため、履歴チャートの初期表示・テスト・オフライン動作に使用します。
+- 実データのスナップショットが十分に蓄積されるまでの過去区間を埋める役割も担います。
+
+### 参考にした無料公開ソース
+
+- PricePerGig（無料 JSON API・実装済み）: https://api.pricepergig.com/drives
+- Stanford DAM Memory Prices（DRAM/HBM/NAND の履歴データセット）: https://dam.stanford.edu/memory-prices.html
+- TrendForce / DRAMeXchange（スポット・コントラクト価格の参照・商用）
