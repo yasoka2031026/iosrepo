@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yt-agent"
+version = "0.1.0"
+description = "YouTube information-gathering agent with Obsidian output"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+real = [
+    "anthropic>=0.34",
+    "openai>=1.40",
+    "google-api-python-client>=2.140",
+    "youtube-transcript-api>=0.6.2",
+]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+yt-agent = "yt_agent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,5 @@
+[
+  { "type": "url", "value": "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+  { "type": "channel", "value": "UCxxxxxxxxxxxxxxxxxxxxxx", "limit": 5 },
+  { "type": "query", "value": "Claude Code tips", "limit": 5 }
+]

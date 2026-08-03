@@ -49,6 +49,12 @@ playground.xcworkspace
 
 Carthage/Build/
 
+# youtube-agent (Python)
+youtube-agent/.venv/
+youtube-agent/**/__pycache__/
+youtube-agent/**/*.egg-info/
+
+
 # fastlane
 #
 # It is recommended to not store the screenshots in the git repo.
