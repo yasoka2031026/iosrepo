@@ -3,7 +3,12 @@
 対象: ChatGPT(有料プラン)と Claude(有料プラン)の両方を契約しているユーザー
 本書の目的: 一方を「実行役(Executor)」、他方を「監視役(Reviewer/Monitor)」として相互に使い分け、
 どちらか一方のコンテキストウィンドウだけに全作業ログを溜め込まずに済む仕組み(**コンテキスト圧縮**)を設計・実装する。
-本書と対になる実装は本リポジトリの [`mcp-bridges/`](../mcp-bridges) にある(動作確認済みの MCP サーバー2本)。
+本書と対になる実装は本リポジトリの [`mcp-bridges/`](../mcp-bridges) にある(動作確認済みの MCP サーバー3本)。
+
+> **前提となる利用実態**: Claude Code は CLI 端末ではなく**デスクトップアプリ**での直接作業がメインで、
+> それに加えて**Cowork(クラウド上のリモートセッション。本書執筆中のこのセッション自体もその一種)**も
+> 並行して頻繁に使う。CLI ターミナル操作は日常のメイン導線ではない。この実態が §4・§5 のアーキテクチャに
+> 直接影響する(ローカル専用の連携と、Cowork でも動く連携を分けて設計する必要がある)。
 
 ---
 
@@ -37,6 +42,11 @@
   も同じ形で使えるようにするのが本設計の狙い。
 - 従って目指す形は「Claude Code の中に、もうひとりの(別モデル・別コンテキストの)サブエージェントとして Codex を
   呼べる」「Codex CLI の中に、同様に Claude を呼べる」という**双方向のプラグイン的連携**である。
+- ただし Claude Code は CLI・デスクトップアプリ・Cowork(Web 上のリモートセッション)の3つの姿を持ち、**動いて
+  いるマシンが違う**。デスクトップアプリ/CLI はユーザーのローカルマシン上で動くため、同じマシンにログイン済みの
+  Codex CLI をサブプロセスとして直接呼び出せる。一方 Cowork はクラウド上の隔離コンテナで動くため、ユーザーの
+  ローカルマシンやそこにログインした Codex CLI には**原理的に手が届かない**。この差を埋めるため、Cowork 向けには
+  ローカル CLI を経由しない別ルート(OpenAI API 直叩き、§5 の `openai-bridge`)を用意する。
 
 ---
 
@@ -50,12 +60,13 @@
 - 独自 API サーバーを常駐させたり Webhook を張ったりする必要がなく、**ローカルの stdio プロセス**で完結するため、
   追加のクラウドインフラや認証設計が不要(それぞれの CLI が既に持っているログイン・課金契約をそのまま使う)。
 
-具体的には、以下2本の MCP サーバーを実装した(§5)。
+具体的には、以下3本の MCP サーバーを実装した(§5)。
 
-| サーバー | 登録先 | 提供ツール | やること |
-|---|---|---|---|
-| `codex-bridge` | Claude Code | `delegate_to_codex` | `codex exec` を非対話起動し、最終報告だけ返す |
-| `claude-bridge` | Codex CLI | `delegate_to_claude` | `claude -p` を非対話起動し、最終報告だけ返す |
+| サーバー | 登録先 | 提供ツール | やること | 動作するサーフェス |
+|---|---|---|---|---|
+| `codex-bridge` | Claude Code | `delegate_to_codex` | `codex exec` を非対話起動し、最終報告だけ返す | デスクトップアプリ・CLI(ローカルマシン限定) |
+| `claude-bridge` | Codex CLI | `delegate_to_claude` | `claude -p` を非対話起動し、最終報告だけ返す | Codex CLI 側(ローカルマシン限定) |
+| `openai-bridge` | Claude Code | `delegate_to_openai` | OpenAI API を直接叩く簡易ツールループを実行し、最終報告だけ返す | **Cowork を含む全サーフェス**(ローカル CLI 不要) |
 
 主エージェント(例: Claude Code)から見ると、これは「`delegate_to_codex` という名前の、思ったより時間のかかる
 1個のツール」でしかない。ツールの中身が実は「別の LLM CLI をフルパワーで1タスク動かす」ものであっても、MCP の
@@ -95,38 +106,65 @@
 
 ## 4. 全体アーキテクチャ
 
+### 4.1 ローカルマシン上(デスクトップアプリ / CLI)
+
 ```
 ┌─────────────────────────┐        stdio/MCP        ┌─────────────────────────┐
-│        Claude Code       │ ──delegate_to_codex──▶ │   codex-bridge (Node)    │
+│  Claude Code(Desktop/CLI)│ ──delegate_to_codex──▶ │   codex-bridge (Node)    │
 │   (主エージェント or      │                         │   `codex exec --json`   │──▶ Codex CLI (ChatGPT契約)
 │    ユーザーの直接操作)     │ ◀───最終報告のみ──────  │                          │
 └─────────────────────────┘                         └─────────────────────────┘
 
 ┌─────────────────────────┐        stdio/MCP        ┌─────────────────────────┐
 │        Codex CLI         │ ──delegate_to_claude─▶ │   claude-bridge (Node)   │
-│   (主エージェント or      │                         │   `claude -p --output-  │──▶ Claude Code(Claude契約)
-│    ユーザーの直接操作)     │ ◀───最終報告のみ──────  │    format json`         │
+│   (主エージェント or      │                         │   `claude -p --output-  │──▶ Claude Code CLI(サイド
+│    ユーザーの直接操作)     │ ◀───最終報告のみ──────  │    format json`         │    カー、Claude契約)
 └─────────────────────────┘                         └─────────────────────────┘
 ```
 
-- どちらの向きも「主エージェント」「ブリッジ(MCP サーバー)」「委譲先 CLI」の3層構造で、対称的。
-- ブリッジ自体は状態を持たない薄いラッパーで、Node.js 単体プロセスとしてローカルで動く(外部ホスティング不要)。
-- 主従は固定ではない。ユーザーが Claude Code を起動していれば Claude が「実行役」、Codex を起動していれば Codex
-  が「実行役」になり、もう一方が呼ばれれば「監視役」になる。**その日どちらのアプリを開いているか**で主従が
-  自然に決まる。
+同一マシン上で完結するため、両ブリッジともサブプロセス起動だけで済む。`claude-bridge` が呼ぶ `claude` CLI は
+ユーザーの主な操作面(デスクトップアプリ / Cowork)とは別物で、あくまでこのブリッジ専用の裏方バイナリとして
+ログインだけしておく。
+
+### 4.2 Cowork(クラウド上のリモートセッション)
+
+```
+┌─────────────────────────┐        stdio/MCP        ┌─────────────────────────┐        HTTPS(プロキシ経由)
+│   Claude Code(Cowork)    │ ─delegate_to_openai──▶ │  openai-bridge (Node)    │ ─────────────────────▶ OpenAI API
+│   クラウドコンテナ内、     │                         │  Chat Completions +      │                        (API課金、
+│   ローカルマシンには       │ ◀───最終報告のみ──────  │  最小限のツールループ     │                        §9参照)
+│   アクセスできない         │                         │  (read_file/list_dir/    │
+└─────────────────────────┘                         │   write_file をサンドボ  │
+                                                       │   ックス内でのみ許可)     │
+                                                       └─────────────────────────┘
+```
+
+Cowork のコンテナはユーザーのローカルマシンにもそこで動く Codex CLI にも到達できないため、`codex-bridge` は
+Cowork では実質使えない(`codex` バイナリが無く即エラーになる)。代わりに `openai-bridge` が OpenAI API を
+直接叩き、ファイル読み書きだけの最小限のツールをその場で実装してエージェントループを回す。Cowork の環境は
+外向き HTTPS がエージェントプロキシ経由になっているため、`openai-bridge` は `HTTPS_PROXY` が設定されていれば
+自動でそれ経由に切り替える(§5)。
+
+- どの向きも「主エージェント」「ブリッジ(MCP サーバー)」「委譲先」の3層構造で対称的。
+- ブリッジ自体は状態を持たない薄いラッパーで、Node.js 単体プロセスとして動く(外部ホスティング不要)。
+- 主従は固定ではない。ユーザーが Claude Code を使っていれば Claude が「実行役」、Codex を使っていれば Codex
+  が「実行役」になり、もう一方が呼ばれれば「監視役」になる。**その時どちらのアプリ・どのサーフェスを開いているか**
+  で主従が自然に決まる。
 
 ---
 
 ## 5. 実装: mcp-bridges
 
-本リポジトリの [`mcp-bridges/`](../mcp-bridges) に、Node.js 製・依存は
-[`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk) のみの MCP サーバーを
-2本実装済み(モック CLI を使った tools/list・tools/call の疎通確認済み)。
+本リポジトリの [`mcp-bridges/`](../mcp-bridges) に、Node.js 製の MCP サーバーを3本実装済み(モック CLI /
+モック API を使った tools/list・tools/call の疎通確認済み)。
 
-- `mcp-bridges/codex-bridge/src/index.js` — `delegate_to_codex` ツール
-- `mcp-bridges/claude-bridge/src/index.js` — `delegate_to_claude` ツール
+- `mcp-bridges/codex-bridge/src/index.js` — `delegate_to_codex` ツール(ローカル専用)
+- `mcp-bridges/claude-bridge/src/index.js` — `delegate_to_claude` ツール(ローカル専用、サイドカー)
+- `mcp-bridges/openai-bridge/src/index.js` — `delegate_to_openai` ツール(Cowork 含む全サーフェス対応)
 
-両者は対称的な実装:
+### 5.1 `codex-bridge` / `claude-bridge`(CLI サブプロセス方式)
+
+対称的な実装:
 
 1. 呼び出し引数(`prompt` / `role` / `cwd` / モデル / タイムアウト等)を受け取る。
 2. `role` に応じてシステム的な前置き文(「あなたは委譲されたサブエージェントです。最終報告だけ返してください」)
@@ -143,23 +181,41 @@
 
 CLI のバージョンによってフラグや出力形式が変わり得るため、`CODEX_BIN` / `CLAUDE_BIN` などの環境変数で
 実行バイナリを差し替え可能にし、JSON パースに失敗した場合は生の標準出力にフォールバックするようにしている。
+
+### 5.2 `openai-bridge`(API 直叩き + 自前の最小エージェントループ方式)
+
+CLI サブプロセスを使えない Cowork 向けの実装。[`openai`](https://www.npmjs.com/package/openai) パッケージで
+Chat Completions API を直接呼び、関数呼び出し(function calling)で以下のツールだけをモデルに与える:
+
+- `read_file` / `list_dir`(常時)
+- `write_file`(`role=executor` のときのみ)
+- シェル実行ツールは**意図的に実装していない**(外部モデルに任意コマンド実行権限を渡す blast radius を避けるため)
+
+すべてのパス引数は指定した `cwd` 配下に強制サンドボックス(`../` によるパストラバーサルは例外を投げて拒否、
+単体テストで確認済み)。モデルがツール呼び出しなしのプレーンテキストを返すまでループし、その最終テキストだけを
+MCP ツール結果として返す(中間のツール呼び出し・モデルの思考は破棄)。
+
+Cowork のようなサンドボックス環境は外向き HTTPS がエージェントプロキシ経由になっていることが多い。
+`openai-bridge` は起動時に `HTTPS_PROXY`(または `https_proxy`)が設定されていれば `undici` の
+`ProxyAgent` をグローバル dispatcher として設定し、OpenAI SDK の通信を自動的にそのプロキシ経由に切り替える。
+
 詳細な引数一覧・環境変数は各ディレクトリの README を参照。
 
 ---
 
 ## 6. セットアップ手順
 
-前提: ChatGPT 側は Codex CLI、Claude 側は Claude Code CLI をそれぞれログイン済みであること。
+### 6.1 ローカルマシン(デスクトップアプリ / CLI)
+
+前提: ChatGPT 側は Codex CLI、Claude 側は Claude Code CLI(サイドカーとしてでよい)をそれぞれログイン済みで
+あること。
 
 ```bash
 # 1. 依存インストール
 cd mcp-bridges/codex-bridge && npm install
 cd ../claude-bridge && npm install
 
-# 2. Claude Code に codex-bridge を登録(Claude → Codex 方向)
-claude mcp add codex-bridge -- node /absolute/path/to/mcp-bridges/codex-bridge/src/index.js
-
-# 3. Codex CLI に claude-bridge を登録(Codex → Claude 方向)
+# 2. Codex CLI に claude-bridge を登録(Codex → Claude 方向)
 #    ~/.codex/config.toml に以下を追記
 ```
 
@@ -169,8 +225,24 @@ command = "node"
 args = ["/absolute/path/to/mcp-bridges/claude-bridge/src/index.js"]
 ```
 
-登録後は、どちらのアプリでも「Codex に確認させて」「Claude にレビューさせて」と自然文で頼めば、主エージェントが
-自律的に `delegate_to_codex` / `delegate_to_claude` ツールを呼び出す(通常のツール利用と同じ承認フローに乗る)。
+`codex-bridge`(Claude → Codex 方向)は本リポジトリの [`.mcp.json`](../.mcp.json) にプロジェクトスコープで
+登録済みなので、このリポジトリを Claude Code で開けば(**デスクトップアプリでも**、ターミナルでも)自動的に
+利用可能になる。初回利用時に1回だけ承認プロンプトが出る(プロジェクトスコープの MCP サーバーの仕様)。
+
+### 6.2 Cowork(クラウド上のリモートセッション)
+
+Cowork ではローカルの Codex CLI に到達できないため、`openai-bridge` を使う。同じく本リポジトリの
+[`.mcp.json`](../.mcp.json) に登録済みだが、`OPENAI_API_KEY`(と任意で `OPENAI_MODEL`)をその Cowork
+環境/セッションの環境変数として渡しておく必要がある(`.mcp.json` は `${OPENAI_API_KEY}` の形でシェル環境
+から値を取り込むだけで、キー自体はファイルにもリポジトリにもコミットしない)。
+
+```bash
+cd mcp-bridges/openai-bridge && npm install
+```
+
+登録後は、どのサーフェスでも「Codex に確認させて」「別視点でチェックして」と自然文で頼めば、主エージェントが
+自律的に `delegate_to_codex` / `delegate_to_openai` / `delegate_to_claude` ツールを呼び出す(通常のツール利用と
+同じ承認フローに乗る)。
 
 ---
 
@@ -186,6 +258,10 @@ args = ["/absolute/path/to/mcp-bridges/claude-bridge/src/index.js"]
 いずれも**プロンプト(`prompt` 引数)を自己完結させる**ことが重要: 委譲先プロセスは呼び出し元の会話履歴を
 一切持たないため、必要なファイルパス・背景・期待する報告フォーマットをすべて明示する。
 
+パターン A・C は Claude Code がローカル(デスクトップアプリ/CLI)で動いていることが前提(`codex-bridge` を
+使うため)。Cowork 上で同じ狙いを実現したい場合は `delegate_to_codex` の代わりに `delegate_to_openai` を使う
+(§4.2, §9 のコスト差に注意)。パターン B・D はどちらの環境でも成立する。
+
 ---
 
 ## 8. 権限・サンドボックスの既定値
@@ -196,20 +272,29 @@ args = ["/absolute/path/to/mcp-bridges/claude-bridge/src/index.js"]
   既定で `acceptEdits` を使う。`bypassPermissions` は明示指定がない限り使わない。
 - どちらのブリッジも、委譲先プロセスの作業ディレクトリ(`cwd`)を呼び出し側が明示的に渡す設計にしており、
   意図しないディレクトリを触らせない。
-- 両ブリッジとも「ネットワーク越しの新規認証」を持たない(=それぞれの CLI が持つ既存ログインセッションに
-  乗るだけ)ため、追加の API キー管理は発生しない。
+- `codex-bridge` / `claude-bridge` は「ネットワーク越しの新規認証」を持たない(=それぞれの CLI が持つ既存
+  ログインセッションに乗るだけ)ため、追加の API キー管理は発生しない。
+- `openai-bridge` は `read_file` / `list_dir` は常時、`write_file` は `role=executor` のときのみ有効にし、
+  シェル実行ツールは実装しない。全ファイル操作は `cwd` 配下にサンドボックスされ、パストラバーサルは例外で
+  拒否される(§5.2)。`OPENAI_API_KEY` の管理が新たに必要になる点は他の2本と異なる(§9 参照)。
 
 ---
 
 ## 9. コスト・レート制限の考え方
 
-- 両ブリッジとも委譲1回 = 委譲先アプリの通常利用1回分の消費(サブスクリプションのレート制限・使用量に
-  そのままカウントされる)。**無料で契約枠を回避できるわけではない**ことに注意。
+- `codex-bridge` / `claude-bridge` は委譲1回 = 委譲先アプリの通常利用1回分の消費(それぞれの**サブスクリプション**
+  のレート制限・使用量にそのままカウントされる)。**無料で契約枠を回避できるわけではない**ことに注意。
+- **`openai-bridge` は課金経路が異なる点に要注意**: これは Codex CLI(ChatGPT Plus/Pro 契約)を経由せず
+  OpenAI API を直接叩くため、多くの場合 ChatGPT のサブスクリプションではなく**従量課金の API クレジット**が
+  消費される(アカウント構成によっては API 利用がサブスクリプションに含まれる場合もあるので、自分の契約内容を
+  要確認)。「両方とも有料プランの範囲内で相互補完する」という本書冒頭の狙いに対し、Cowork 経由の委譲だけは
+  追加コストが発生し得る例外であることを認識した上で使う。
 - 「監視役」として `reviewer` ロールで軽く使う分にはトークン消費は小さいが、`executor` ロールで大きな実装を
-  丸ごと委譲すると、委譲先アプリ側の利用量を大きく消費する。
+  丸ごと委譲すると、委譲先側の利用量(またはAPIクレジット)を大きく消費する。
 - 目安: 自分の手元コンテキストが逼迫してきた/専門外の視点が欲しいときに限定して使う「セカンドオピニオン」
-  用途が最も費用対効果が高い。常時ダブルチェックさせる運用は双方の使用量枠を消費するため、まずはパターン A/B
-  (§7)から始めることを推奨。
+  用途が最も費用対効果が高い。常時ダブルチェックさせる運用は双方の使用量枠(または課金)を消費するため、まずは
+  パターン A/B(§7)から始めることを推奨。ローカルで作業しているときは極力 `codex-bridge`(契約内)を優先し、
+  `openai-bridge`(従量課金)は Cowork でどうしても必要なときに限定するのが費用面では合理的。
 
 ---
 
@@ -217,7 +302,7 @@ args = ["/absolute/path/to/mcp-bridges/claude-bridge/src/index.js"]
 
 | 案 | 内容 | 不採用/非採用理由 |
 |---|---|---|
-| 直接 API 呼び出し(Anthropic API ⇄ OpenAI API) | 各社の API を自作スクリプトから直接叩く | Claude Code / Codex CLI が持つツール実行環境(ファイルアクセス・Bash 実行・権限管理)を再実装する必要があり、車輪の再発明になる。ブリッジ経由なら各 CLI の既存エージェント能力をそのまま使い回せる |
+| 直接 API 呼び出し(Anthropic API ⇄ OpenAI API) | 各社の API を自作スクリプトから直接叩く | Claude Code / Codex CLI が持つツール実行環境(ファイルアクセス・Bash 実行・権限管理)を再実装する必要があり、車輪の再発明になる。ブリッジ経由なら各 CLI の既存エージェント能力をそのまま使い回せる。**ただし Cowork → ChatGPT 方向だけは例外的にこれを採用**(`openai-bridge`, §5.2): ローカル Codex CLI に到達できない制約上、代替手段がないため。再実装の範囲は意図的に read_file/list_dir/write_file の3ツールだけに絞り、再発明のコストとリスクを最小化している |
 | Webhook / 常駐サーバー | 片方の完了をもう片方に push 通知 | 常時稼働のサーバーとネットワーク経路(認証込み)が必要になり、ローカル完結という利点が失われる。将来 §11 の「監視ループ型」で部分的に検討 |
 | シェルスクリプトで単純に `codex exec` を叩くだけ(MCP なし) | Bash ツール経由で直接サブプロセス起動 | 動くには動くが、主エージェント自身が「委譲」という操作の意味・引数・役割分担を毎回自然文で組み立てる必要があり、再利用性・エラーハンドリングが弱い。MCP ツールとして明示的にスキーマ化した方が主エージェントが安定して使える |
 
@@ -225,8 +310,8 @@ args = ["/absolute/path/to/mcp-bridges/claude-bridge/src/index.js"]
 
 ## 11. 今後の拡張ロードマップ
 
-1. **Claude Code Plugin 化**: `codex-bridge` を `.claude-plugin/plugin.json` + `.mcp.json` でパッケージ化し、
-   `/plugin install` 一発で導入できるようにする。
+1. **Claude Code Plugin 化**: 3本すべてを `.claude-plugin/plugin.json` + `.mcp.json` でパッケージ化し、
+   `/plugin install` 一発で導入できるようにする(現状はこのリポジトリの `.mcp.json` に直接登録する方式)。
 2. **非同期委譲**: 現状は委譲先の完了を同期待ちするブロッキング呼び出し。長時間タスクは `--bg`
   (Claude Code のバックグラウンドエージェント)や Codex 側の同等機能と組み合わせ、「投げて後で結果だけ回収する」
    形にする。
@@ -234,6 +319,13 @@ args = ["/absolute/path/to/mcp-bridges/claude-bridge/src/index.js"]
    定期的に叩き、CI 失敗やレビュー未対応 PR を検知したら自動で相互通知する。
 4. **委譲ログの可視化**: 委譲先プロセスの JSONL イベントをファイルに保存し、後から人間が「実際に何をしたか」を
    追えるようにする(現状は最終報告のみで中間ログは破棄しているため)。
+5. **`openai-bridge` のツール拡充とコスト可視化**: 現状は read/list/write のみ。安全性を保ったまま grep 相当の
+   検索ツールを追加する余地がある。また API クレジット消費量(§9)をツール結果に付記し、Cowork 経由の委譲が
+   累積でどれだけ課金されているか把握しやすくする。
+6. **Cowork → ローカル方向の委譲**: 現状 Cowork は「ChatGPT 側に投げる」ことはできるが、Cowork からユーザーの
+   ローカルマシンの Claude Code(デスクトップアプリ)に何かを投げ返す経路は無い(そもそも Cowork 自体が
+   Claude 側のセッションなので通常は不要だが、将来的に「ローカルの Codex CLI にも一度だけ確認させたい」といった
+   ニーズが出た場合は、ローカル側に常駐する小さな待受プロセスを別途検討する)。
 
 ---
 
@@ -241,7 +333,12 @@ args = ["/absolute/path/to/mcp-bridges/claude-bridge/src/index.js"]
 
 - [x] 双方向(Claude→Codex, Codex→Claude)の連携方式を定義した
 - [x] コンテキスト圧縮のメカニズムを具体的に説明した(サブプロセス境界での transcript 破棄)
-- [x] 実装(`mcp-bridges/`)をモック CLI で疎通確認済み(tools/list, tools/call とも正常動作)
-- [x] 権限・サンドボックスの既定値を安全側(read-only / plan)に倒した
-- [x] コスト・レート制限に関する注意を明記した
+- [x] 実装(`mcp-bridges/`)をモック CLI・モック API で疎通確認済み(tools/list, tools/call とも正常動作)
+- [x] 権限・サンドボックスの既定値を安全側(read-only / plan、パストラバーサル拒否)に倒した
+- [x] コスト・レート制限に関する注意を明記した(`openai-bridge` の従量課金という例外も含む)
 - [x] 代替案(直接 API・Webhook・素の Bash 呼び出し)との比較を行った
+- [x] Claude Code の実際の利用実態(デスクトップアプリ + Cowork 中心、CLI はサイドカーのみ)に合わせて
+      アーキテクチャを見直した(ローカル専用の `codex-bridge`/`claude-bridge` と、Cowork でも動く
+      `openai-bridge` を分離)
+- [x] 本リポジトリの `.mcp.json` にプロジェクトスコープで登録し、CLI・デスクトップアプリ・Cowork のどの
+      サーフェスから開いても自動的に利用可能にした

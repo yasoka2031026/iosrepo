@@ -9,7 +9,13 @@ subprocess — only the final report enters the calling model's context.
 
 - Node.js >= 18
 - The [Claude Code CLI](https://claude.com/claude-code) installed and
-  logged in (`claude` on `PATH`, or point `CLAUDE_BIN` at its binary)
+  logged in (`claude` on `PATH`, or point `CLAUDE_BIN` at its binary).
+  This is only needed as a **sidecar automation binary** for this bridge —
+  you can keep using the Desktop app or Cowork/web as your primary way of
+  working with Claude Code day-to-day; installing the CLI alongside them
+  just gives this server a way to run Claude non-interactively. It runs on
+  the same machine as the Codex CLI (this bridge is invoked by Codex, so it
+  needs local Claude CLI + login on that machine).
 
 ## Install
 

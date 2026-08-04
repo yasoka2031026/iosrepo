@@ -1,0 +1,25 @@
+{
+  "name": "openai-bridge-mcp",
+  "version": "0.1.0",
+  "description": "MCP server that lets Claude (incl. Cowork/remote sessions) delegate subtasks directly to the OpenAI API, for use where a local Codex CLI isn't reachable",
+  "main": "src/index.js",
+  "bin": {
+    "openai-bridge-mcp": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "keywords": ["mcp", "openai", "claude-code", "cowork"],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "openai": "^7.4.0",
+    "undici": "^8.10.0",
+    "zod": "^3.25.76"
+  }
+}

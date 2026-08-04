@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "codex-bridge": {
+      "command": "node",
+      "args": ["${CLAUDE_PROJECT_DIR:-.}/mcp-bridges/codex-bridge/src/index.js"],
+      "env": {
+        "CODEX_BIN": "${CODEX_BIN:-codex}",
+        "CODEX_BRIDGE_SANDBOX": "${CODEX_BRIDGE_SANDBOX:-workspace-write}"
+      }
+    },
+    "openai-bridge": {
+      "command": "node",
+      "args": ["${CLAUDE_PROJECT_DIR:-.}/mcp-bridges/openai-bridge/src/index.js"],
+      "env": {
+        "OPENAI_API_KEY": "${OPENAI_API_KEY:-}",
+        "OPENAI_MODEL": "${OPENAI_MODEL:-}"
+      }
+    }
+  }
+}

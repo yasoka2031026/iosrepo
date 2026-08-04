@@ -7,9 +7,14 @@ subprocess — only the final report enters Claude's context window.
 
 ## Requirements
 
+- A machine where the [Codex CLI](https://github.com/openai/codex) is
+  installed and logged in (`codex` on `PATH`, or point `CODEX_BIN` at its
+  binary). This means **local use only** — Claude Code Desktop app or
+  terminal on your own machine. It will not work from Cowork / Claude Code
+  on the web, since that runs in a cloud container with no access to your
+  machine's Codex CLI login session — use
+  [`openai-bridge`](../openai-bridge) there instead.
 - Node.js >= 18
-- The [Codex CLI](https://github.com/openai/codex) installed and logged in
-  (`codex` on `PATH`, or point `CODEX_BIN` at its binary)
 
 ## Install
 
@@ -20,24 +25,16 @@ npm install
 
 ## Register with Claude Code
 
-Add to a project's `.mcp.json` (or user-level `~/.claude.json` under
-`mcpServers`):
+This repo's root [`.mcp.json`](../../.mcp.json) already registers
+`codex-bridge` as a project-scoped server. Claude Code reads the same
+`.mcp.json` regardless of which surface opens the project — terminal,
+**Desktop app**, or web — so nothing extra is needed for the Desktop app
+specifically. The first time it's used in a session you'll get a one-time
+approval prompt (project-scoped servers require explicit approval).
 
-```json
-{
-  "mcpServers": {
-    "codex-bridge": {
-      "command": "node",
-      "args": ["/absolute/path/to/mcp-bridges/codex-bridge/src/index.js"],
-      "env": {
-        "CODEX_BRIDGE_SANDBOX": "workspace-write"
-      }
-    }
-  }
-}
-```
-
-Or via the CLI:
+To register it in a different project, either add the same block to that
+project's `.mcp.json`, or run this once from a terminal (it just edits the
+JSON file for you — you don't need to keep using the terminal afterward):
 
 ```bash
 claude mcp add codex-bridge -- node /absolute/path/to/mcp-bridges/codex-bridge/src/index.js
@@ -45,7 +42,8 @@ claude mcp add codex-bridge -- node /absolute/path/to/mcp-bridges/codex-bridge/s
 
 Once registered, Claude Code gains a `delegate_to_codex` tool. Ask Claude to
 "delegate X to Codex" or "get a second opinion from Codex on this diff" and
-it will call the tool itself.
+it will call the tool itself — from the Desktop app UI this looks like any
+other tool-call permission prompt.
 
 ## Tool: `delegate_to_codex`
 
