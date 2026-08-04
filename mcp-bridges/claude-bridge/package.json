@@ -1,0 +1,23 @@
+{
+  "name": "claude-bridge-mcp",
+  "version": "0.1.0",
+  "description": "MCP server that lets Codex CLI delegate subtasks to Claude Code (context-compressed executor/reviewer bridge)",
+  "main": "src/index.js",
+  "bin": {
+    "claude-bridge-mcp": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "keywords": ["mcp", "claude-code", "codex"],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.76"
+  }
+}
