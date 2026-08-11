@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LINE アナライザー</title>
+<style>
+/* ── Design Tokens ──────────────────────────────────────────────── */
+:root {
+  --bg:           #0D0D0D;
+  --surface:      #1A1A1A;
+  --surface-el:   #252525;
+  --border:       #2A2A2A;
+  --accent:       #06C755;
+  --accent-muted: #0A2E18;
+  --txt-1:        #F0F0F0;
+  --txt-2:        #8A8A8A;
+  --txt-3:        #4A4A4A;
+  --danger:       #FF453A;
+  --warn:         #FF9F0A;
+  --r:            12px;
+  --mono:         'SF Mono','Menlo','Consolas',monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--txt-1);
+  font-family: -apple-system,'Hiragino Sans','Yu Gothic',sans-serif;
+  font-size: 15px; line-height: 1.5;
+  height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
+}
+#app { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── Views ──────────────────────────────────────────────────────── */
+.view { flex: 1; overflow-y: auto; display: none; flex-direction: column; }
+.view.active { display: flex; }
+
+/* ── Nav ────────────────────────────────────────────────────────── */
+nav {
+  display: flex; background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.nav-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  gap: 3px; padding: 8px 4px; background: none; border: none;
+  color: var(--txt-3); font-size: 10px; cursor: pointer;
+}
+.nav-btn.on { color: var(--accent); }
+.nav-btn svg { width: 22px; height: 22px; fill: currentColor; }
+
+/* ── Header ─────────────────────────────────────────────────────── */
+.hdr {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; background: var(--surface);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.hdr h1 { font-size: 18px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hdr-btn {
+  background: none; border: none; color: var(--accent);
+  cursor: pointer; padding: 6px; border-radius: 8px; display: flex; align-items: center;
+}
+.hdr-btn:hover { background: var(--surface-el); }
+
+/* ── Tab Bar ─────────────────────────────────────────────────────── */
+.tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.tab {
+  flex: 1; background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--txt-2); font-size: 14px; padding: 12px 6px; cursor: pointer;
+}
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+/* ── Cards ───────────────────────────────────────────────────────── */
+.card { background: var(--surface); border-radius: var(--r); overflow: hidden; }
+
+/* ── Session List ────────────────────────────────────────────────── */
+.s-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+.s-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 14px; background: var(--surface); border-radius: var(--r);
+  cursor: pointer; transition: background .1s;
+}
+.s-row:hover { background: var(--surface-el); }
+.s-icon {
+  width: 48px; height: 48px; background: var(--accent-muted);
+  border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  color: var(--accent); flex-shrink: 0;
+}
+.s-info { flex: 1; min-width: 0; }
+.s-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-meta { font-size: 12px; color: var(--txt-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Search ──────────────────────────────────────────────────────── */
+.srch {
+  display: flex; align-items: center; gap: 8px;
+  margin: 10px 16px; padding: 9px 12px;
+  background: var(--surface); border-radius: 10px; border: 1px solid var(--border);
+}
+.srch input {
+  flex: 1; background: none; border: none; outline: none;
+  color: var(--txt-1); font-size: 14px;
+}
+.srch input::placeholder { color: var(--txt-3); }
+.srch svg { flex-shrink: 0; }
+
+/* ── Messages ────────────────────────────────────────────────────── */
+.msg-row {
+  display: flex; gap: 10px; padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.msg-time { font-family: var(--mono); font-size: 12px; color: var(--txt-3); width: 44px; flex-shrink: 0; padding-top: 2px; }
+.msg-body { flex: 1; }
+.msg-sender { font-size: 12px; color: var(--accent); margin-bottom: 2px; }
+.msg-text { font-size: 14px; }
+.msg-text.sp { color: var(--txt-3); font-style: italic; }
+mark { background: rgba(6,199,85,.25); border-radius: 3px; padding: 0 2px; color: inherit; }
+
+/* ── Query Cards ─────────────────────────────────────────────────── */
+.q-card { background: var(--surface); border-radius: var(--r); overflow: hidden; }
+.q-question {
+  padding: 12px 14px; display: flex; gap: 8px;
+  border-bottom: 1px solid var(--border); align-items: flex-start;
+}
+.q-answer { padding: 12px 14px; display: flex; gap: 8px; }
+.q-answer-text { flex: 1; font-size: 14px; color: var(--txt-2); white-space: pre-wrap; }
+.q-src-toggle {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-top: 1px solid var(--border);
+  background: none; border-bottom: none; border-left: none; border-right: none;
+  color: var(--txt-3); font-size: 12px; cursor: pointer; width: 100%; text-align: left;
+}
+.src-row {
+  display: flex; gap: 8px; padding: 8px 14px;
+  border-top: 1px solid var(--border); background: var(--bg);
+}
+.src-bar { width: 3px; background: var(--accent); border-radius: 2px; flex-shrink: 0; }
+.src-session { font-size: 10px; font-weight: 700; color: var(--accent); }
+.src-sender { font-size: 11px; color: var(--txt-2); }
+.src-date { font-size: 10px; color: var(--txt-3); }
+.src-preview { font-size: 12px; color: var(--txt-3); margin-top: 2px; }
+
+/* ── Badges ──────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block; font-size: 10px; font-weight: 600;
+  padding: 2px 8px; border-radius: 99px; margin-right: 4px;
+}
+.b-accent { background: var(--accent); color: #000; }
+.b-muted  { background: var(--surface-el); color: var(--txt-3); }
+
+/* ── Input Area ──────────────────────────────────────────────────── */
+.input-area {
+  background: var(--bg); border-top: 1px solid var(--border);
+  padding: 10px 16px 14px; flex-shrink: 0;
+}
+.input-opts { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.toggle-btn {
+  display: flex; align-items: center; gap: 5px; padding: 4px 10px;
+  border-radius: 99px; border: none; background: var(--surface-el);
+  color: var(--txt-3); font-size: 11px; font-weight: 600; cursor: pointer;
+}
+.toggle-btn.on { background: var(--accent); color: #000; }
+.input-row { display: flex; gap: 8px; align-items: flex-end; }
+.input-row textarea {
+  flex: 1; background: var(--surface); border: none; border-radius: 20px;
+  padding: 10px 14px; color: var(--txt-1); font-size: 15px;
+  resize: none; outline: none; min-height: 42px; max-height: 120px;
+  font-family: inherit;
+}
+.send-btn {
+  width: 36px; height: 36px; border-radius: 99px; border: none;
+  background: var(--accent); color: #000; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.send-btn:disabled { opacity: .3; cursor: not-allowed; }
+
+/* ── Primary Button ──────────────────────────────────────────────── */
+.btn-p {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 14px; background: var(--accent); color: #000;
+  border: none; border-radius: var(--r); font-size: 16px; font-weight: 600; cursor: pointer;
+}
+.btn-p:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Empty State ─────────────────────────────────────────────────── */
+.empty {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 16px; padding: 40px; text-align: center;
+}
+.empty-icon {
+  width: 80px; height: 80px; background: var(--accent-muted);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--accent);
+}
+
+/* ── Banners ─────────────────────────────────────────────────────── */
+.warn-banner {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  padding: 8px 16px; background: rgba(255,159,10,.1);
+  font-size: 12px; color: var(--warn);
+}
+.cross-banner {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  padding: 8px 16px; overflow-x: auto; white-space: nowrap;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+}
+
+/* ── Settings ────────────────────────────────────────────────────── */
+.set-label {
+  font-size: 11px; color: var(--txt-2); text-transform: uppercase;
+  letter-spacing: .05em; padding: 0 4px; margin-bottom: 8px;
+}
+.set-row {
+  display: flex; align-items: center; padding: 12px 14px;
+  background: var(--surface); gap: 10px;
+}
+.set-row + .set-row { border-top: 1px solid var(--border); }
+.set-row label { flex: 1; color: var(--txt-2); }
+.set-val { font-size: 14px; color: var(--txt-3); }
+.set-input {
+  flex: 1; background: none; border: none; outline: none;
+  color: var(--txt-1); font-family: var(--mono); font-size: 13px; width: 0;
+}
+
+/* ── Stats ───────────────────────────────────────────────────────── */
+.stats-row { display: flex; padding: 14px; }
+.stat { flex: 1; text-align: center; }
+.stat-v { font-size: 20px; font-weight: 700; }
+.stat-l { font-size: 11px; color: var(--txt-3); }
+.stat-sep { width: 1px; background: var(--border); }
+
+/* ── Tags ────────────────────────────────────────────────────────── */
+.tags { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 12px; }
+.tag { font-size: 11px; color: var(--txt-2); background: var(--surface-el); padding: 3px 10px; border-radius: 99px; }
+
+/* ── Loading ─────────────────────────────────────────────────────── */
+.loading-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px; background: var(--surface-el); border-radius: var(--r);
+}
+.spin {
+  width: 18px; height: 18px; border: 2px solid var(--accent-muted);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin .8s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Misc ────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+a { text-decoration: none; color: inherit; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="v-home"     class="view"></div>
+  <div id="v-session"  class="view"></div>
+  <div id="v-global"   class="view"></div>
+  <div id="v-settings" class="view"></div>
+  <nav id="main-nav">
+    <button class="nav-btn on" data-nav="home" onclick="App.go('home')">
+      <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+      トーク
+    </button>
+    <button class="nav-btn" data-nav="settings" onclick="App.go('settings')">
+      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.28 7.28 0 0 0-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.47.47 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.61 3.61 0 0 1 8.4 12c0-1.98 1.62-3.6 3.6-3.6s3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      設定
+    </button>
+  </nav>
+</div>
+<input type="file" id="file-picker" accept=".txt" multiple style="display:none">
+
+<script>
+'use strict';
+
+// ════════════════════════════════════════════════════════════════════
+// STORAGE
+// ════════════════════════════════════════════════════════════════════
+const DB = {
+  k: s => `lca_${s}`,
+  sessions() {
+    try { return JSON.parse(localStorage.getItem(this.k('sessions')) || '[]'); } catch { return []; }
+  },
+  save(session) {
+    const { messages, ...meta } = session;
+    const list = this.sessions().filter(s => s.id !== session.id);
+    list.unshift({ ...meta, messageCount: messages?.length ?? meta.messageCount });
+    localStorage.setItem(this.k('sessions'), JSON.stringify(list));
+    if (messages) localStorage.setItem(this.k(`m_${session.id}`), JSON.stringify(messages));
+  },
+  msgs(id) {
+    try { return JSON.parse(localStorage.getItem(this.k(`m_${id}`)) || '[]'); } catch { return []; }
+  },
+  del(id) {
+    localStorage.setItem(this.k('sessions'), JSON.stringify(this.sessions().filter(s => s.id !== id)));
+    [this.k(`m_${id}`), this.k(`q_${id}`)].forEach(k => localStorage.removeItem(k));
+  },
+  qResults(sessionId, crossOnly = false) {
+    try {
+      const all = JSON.parse(localStorage.getItem(this.k('qr')) || '[]');
+      return crossOnly ? all.filter(r => r.isCross) : all.filter(r => r.sessionId === sessionId);
+    } catch { return []; }
+  },
+  saveQR(r) {
+    const all = JSON.parse(localStorage.getItem(this.k('qr')) || '[]');
+    all.unshift(r);
+    localStorage.setItem(this.k('qr'), JSON.stringify(all));
+  },
+  delQR(id) {
+    const all = JSON.parse(localStorage.getItem(this.k('qr')) || '[]');
+    localStorage.setItem(this.k('qr'), JSON.stringify(all.filter(r => r.id !== id)));
+  },
+  clearQR() { localStorage.removeItem(this.k('qr')); },
+  apiKey() { return localStorage.getItem(this.k('ak')) || ''; },
+  setKey(v) { localStorage.setItem(this.k('ak'), v); },
+  setSummary(id, s) {
+    const list = this.sessions();
+    const sess = list.find(x => x.id === id);
+    if (sess) { sess.summary = s; localStorage.setItem(this.k('sessions'), JSON.stringify(list)); }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════
+// LINE PARSER
+// ════════════════════════════════════════════════════════════════════
+const Parser = {
+  parse(text, name) {
+    const lines = text.split('\n');
+    const msgs = [], parts = new Set();
+    let cur = null, start = null, end = null;
+    const dP1 = /^(\d{4})\/(\d{2})\/(\d{2})\(.+\)$/;
+    const dP2 = /^(\d{4})年(\d{1,2})月(\d{1,2})日\(.+\)$/;
+    const mP  = /^(\d{1,2}):(\d{2})\t(.+?)\t(.+)$/;
+
+    for (const raw of lines) {
+      const t = raw.trim();
+      if (!t || t.startsWith('[LINE]') || t.startsWith('保存日時')) continue;
+
+      let m = dP1.exec(t) || dP2.exec(t);
+      if (m) {
+        cur = new Date(+m[1], +m[2]-1, +m[3]);
+        if (!start) start = cur;
+        end = cur;
+        continue;
+      }
+      m = mP.exec(t);
+      if (m) {
+        const h = +m[1], min = +m[2], sender = m[3].trim(), content = m[4].trim();
+        let ts = null;
+        if (cur) { ts = new Date(cur); ts.setHours(h, min, 0, 0); }
+        parts.add(sender);
+        msgs.push({ id: uid(), timestamp: ts?.toISOString() ?? null, senderName: sender, content });
+      }
+    }
+
+    const fmt = d => new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'short',day:'numeric'}).format(d);
+    const dateRange = start
+      ? (end && end-start > 86400000 ? `${fmt(start)} 〜 ${fmt(end)}` : fmt(start))
+      : '';
+
+    return {
+      id: uid(), name, importDate: new Date().toISOString(),
+      participantNames: [...parts].sort(), messageCount: msgs.length,
+      startDate: start?.toISOString() ?? null, endDate: end?.toISOString() ?? null,
+      dateRange, summary: null, messages: msgs,
+    };
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════
+// CLAUDE API
+// ════════════════════════════════════════════════════════════════════
+const Claude = {
+  MODEL: 'claude-haiku-4-5-20251001',
+
+  async _call(body) {
+    const res = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-client-api-key': DB.apiKey() },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+      throw new Error(e.error?.message || e.error || `HTTP ${res.status}`);
+    }
+    const d = await res.json();
+    return d.content?.[0]?.text ?? '';
+  },
+
+  // [2024/01/15 12:30 | トーク名 | 送信者] 本文
+  buildCtx(msgs, sessionName, max = 5000) {
+    let lines = [], total = 0;
+    const fmtDate = iso => iso
+      ? new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(iso))
+      : '日時不明';
+    for (const m of msgs) {
+      const line = `[${fmtDate(m.timestamp)} | ${sessionName} | ${m.senderName}] ${m.content}`;
+      if (total + line.length + 1 > max) break;
+      lines.push(line); total += line.length + 1;
+    }
+    return lines.join('\n');
+  },
+
+  search(msgs, q) {
+    const kw = q.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!kw.length) return [];
+    return msgs.filter(m => kw.some(k => m.content.toLowerCase().includes(k) || m.senderName.toLowerCase().includes(k)));
+  },
+
+  async query(question, session, full = false) {
+    const all = DB.msgs(session.id).sort((a,b) => +new Date(a.timestamp||0) - +new Date(b.timestamp||0));
+    let used = full ? all : (() => {
+      const rel = this.search(all, question);
+      const rec = all.slice(-50);
+      const seen = new Set();
+      return [...rel, ...rec].filter(m => seen.has(m.id) ? false : seen.add(m.id))
+        .sort((a,b) => +new Date(a.timestamp||0) - +new Date(b.timestamp||0));
+    })();
+    if (!used.length) throw new Error('関連するメッセージが見つかりませんでした。');
+    const ctx = this.buildCtx(used, session.name);
+    const resp = await this._send(question, ctx, [session.name]);
+    return { response: resp, sources: mkSources(used, session.name, 20), sessions: [session.name], isCross: false };
+  },
+
+  async queryCross(question, sessions) {
+    const blocks = [], srcs = [];
+    for (const s of sessions) {
+      const all = DB.msgs(s.id).sort((a,b) => +new Date(a.timestamp||0) - +new Date(b.timestamp||0));
+      const rel = this.search(all, question);
+      const rec = all.slice(-15);
+      const seen = new Set();
+      const combined = [...rel, ...rec].filter(m => seen.has(m.id) ? false : seen.add(m.id))
+        .sort((a,b) => +new Date(a.timestamp||0) - +new Date(b.timestamp||0));
+      if (!combined.length) continue;
+      blocks.push(`━━━ 【トーク: ${s.name}】 ━━━\n${this.buildCtx(combined, s.name, 2500)}`);
+      srcs.push(...mkSources(combined.slice(0, 8), s.name));
+    }
+    if (!blocks.length) throw new Error('関連するメッセージが見つかりませんでした。');
+    const names = sessions.map(s => s.name);
+    const resp = await this._send(question, blocks.join('\n\n'), names);
+    return { response: resp, sources: srcs, sessions: names, isCross: true };
+  },
+
+  async summarize(sessionId) {
+    const msgs = DB.msgs(sessionId).slice(0, 200);
+    const body = msgs.map(m => `${m.senderName}: ${m.content}`).join('\n');
+    return this._call({
+      model: this.MODEL, max_tokens: 1024,
+      system: 'LINEトーク履歴を分析し、以下の形式で日本語でまとめてください:\n## 概要\n（2〜3文で）\n## 主なトピック\n- \n## キーポイント\n- ',
+      messages: [{ role: 'user', content: `以下のトーク履歴をまとめてください：\n\n${body}` }],
+    });
+  },
+
+  async _send(question, context, sessionNames) {
+    const cross = sessionNames.length > 1;
+    const scope = cross
+      ? `複数のLINEトーク（${sessionNames.join('・')}）`
+      : `LINEトーク「${sessionNames[0]}」`;
+    const system = `あなたは${scope}の履歴を分析するAIアシスタントです。\n\n【回答ルール】\n1. 提供されたトーク内容のみを根拠にして回答\n2. 情報の出典（トーク名・送信者・日付）を必ず明記: 例 (${sessionNames[0]} / 田中太郎 / 2024年1月15日)\n3. 複数トークの場合はトークごとに整理して提示\n4. 記載のない情報は「記録なし」と明記\n5. 日本語で回答`;
+    return this._call({
+      model: this.MODEL, max_tokens: 1500, system,
+      messages: [{ role: 'user', content: `【トーク履歴】\n${context}\n\n【質問】\n${question}` }],
+    });
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════
+// APP
+// ════════════════════════════════════════════════════════════════════
+const App = {
+  s: {
+    view: 'home', sid: null, tab: 0,
+    msgQ: '', homeQ: '',
+    fullCtx: false, crossMode: false,
+    loading: false, gloading: false,
+    srcOpen: new Set(), ansOpen: new Set(),
+  },
+
+  go(view, extra = {}) {
+    Object.assign(this.s, { view, ...extra });
+    this._render();
+  },
+
+  _render() {
+    const { view } = this.s;
+    document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+    document.getElementById(`v-${view}`)?.classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      const nav = btn.dataset.nav;
+      btn.classList.toggle('on', nav === view || (nav === 'home' && ['session','global'].includes(view)));
+    });
+    document.getElementById('main-nav').style.display =
+      ['home','settings'].includes(view) ? 'flex' : 'none';
+
+    if (view === 'home')     this._home();
+    else if (view === 'session') this._session();
+    else if (view === 'global')  this._global();
+    else if (view === 'settings') this._settings();
+  },
+
+  // ── HOME ──────────────────────────────────────────────────────────
+  _home() {
+    const el = document.getElementById('v-home');
+    const sessions = DB.sessions();
+    if (!sessions.length) {
+      el.innerHTML = `
+        <div class="hdr"><h1>LINE アナライザー</h1>
+          <button class="hdr-btn" onclick="App._pick()" title="読み込む">
+            ${ico_plus}
+          </button>
+        </div>
+        <div class="empty">
+          <div class="empty-icon">${ico_bubble(40)}</div>
+          <div style="font-size:18px;font-weight:600">トーク履歴がありません</div>
+          <div style="color:var(--txt-2);font-size:14px">LINEからエクスポートした<br>トーク履歴（.txt）を読み込んでください</div>
+          <button class="btn-p" onclick="App._pick()" style="max-width:220px">
+            ${ico_plus} トークを読み込む
+          </button>
+        </div>`;
+      return;
+    }
+    el.innerHTML = `
+      <div class="hdr"><h1>LINE アナライザー</h1>
+        <button class="hdr-btn" onclick="App.go('global')" title="全トーク横断検索">${ico_search}</button>
+        <button class="hdr-btn" onclick="App._pick()" title="読み込む">${ico_plus}</button>
+      </div>
+      <div class="srch">
+        ${ico_search_sm}
+        <input type="text" placeholder="トーク名・メンバーで検索" id="home-srch"
+          value="${H(this.s.homeQ)}" oninput="App._homeSearch(this.value)">
+        ${this.s.homeQ ? `<button onclick="App._homeSearch('')" style="background:none;border:none;color:var(--txt-3);cursor:pointer">✕</button>` : ''}
+      </div>
+      <div class="s-list" id="s-list"></div>`;
+    this._sessionList(sessions, this.s.homeQ);
+  },
+
+  _sessionList(sessions, q) {
+    const lower = q.toLowerCase();
+    const list = lower
+      ? sessions.filter(s => s.name.toLowerCase().includes(lower) || (s.participantNames||[]).some(p=>p.toLowerCase().includes(lower)))
+      : sessions;
+    const el = document.getElementById('s-list');
+    if (!el) return;
+    el.innerHTML = list.length ? list.map(s => `
+      <div class="s-row" onclick="App.go('session',{sid:'${s.id}',tab:0,msgQ:'',srcOpen:new Set(),ansOpen:new Set()})">
+        <div class="s-icon">${ico_bubble(22)}</div>
+        <div class="s-info">
+          <div class="s-name">${H(s.name)}</div>
+          <div class="s-meta">${H((s.participantNames||[]).join('、'))}</div>
+          ${s.dateRange ? `<div class="s-meta" style="color:var(--txt-3)">${H(s.dateRange)}</div>` : ''}
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:12px;color:var(--txt-3)">${s.messageCount}件</div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--txt-3)"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </div>
+      </div>`).join('')
+      : '<div style="padding:32px;text-align:center;color:var(--txt-3)">一致するトークがありません</div>';
+  },
+
+  _homeSearch(v) { this.s.homeQ = v; this._sessionList(DB.sessions(), v); },
+
+  // ── SESSION ───────────────────────────────────────────────────────
+  _session() {
+    const sess = DB.sessions().find(s => s.id === this.s.sid);
+    if (!sess) { this.go('home'); return; }
+    const tabs = ['メッセージ', 'AI質問', 'サマリー'];
+    const el = document.getElementById('v-session');
+    el.innerHTML = `
+      <div class="hdr">
+        <button class="hdr-btn" onclick="App.go('home')">${ico_back}</button>
+        <h1 style="font-size:16px">${H(sess.name)}</h1>
+      </div>
+      <div class="tabs">
+        ${tabs.map((t,i)=>`<button class="tab${this.s.tab===i?' on':''}" onclick="App._tab(${i})">${t}</button>`).join('')}
+      </div>
+      <div id="tab-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0"></div>`;
+    this._tabBody(sess);
+  },
+
+  _tab(i) {
+    this.s.tab = i;
+    document.querySelectorAll('.tab').forEach((b,j)=>b.classList.toggle('on',j===i));
+    this._tabBody(DB.sessions().find(s=>s.id===this.s.sid));
+  },
+
+  _tabBody(sess) {
+    const el = document.getElementById('tab-body');
+    if (!el) return;
+    if (this.s.tab === 0) this._msgs(sess, el);
+    else if (this.s.tab === 1) this._query(sess, el);
+    else this._summary(sess, el);
+  },
+
+  // ── MESSAGES ──────────────────────────────────────────────────────
+  _msgs(sess, wrap) {
+    const all = DB.msgs(sess.id).sort((a,b)=>+new Date(a.timestamp||0)-+new Date(b.timestamp||0));
+    const q = this.s.msgQ;
+    const filtered = q
+      ? all.filter(m => m.content.toLowerCase().includes(q.toLowerCase()) || m.senderName.toLowerCase().includes(q.toLowerCase()))
+      : all;
+
+    wrap.innerHTML = `
+      <div style="background:var(--bg);padding:8px 16px 4px;flex-shrink:0">
+        <div class="srch">
+          ${ico_search_sm}
+          <input type="text" placeholder="メッセージ・送信者を検索" value="${H(q)}"
+            oninput="App._msgSearch(this.value)" style="font-size:14px">
+          ${q?`<button onclick="App._msgSearch('')" style="background:none;border:none;color:var(--txt-3);cursor:pointer">✕</button>`:''}
+        </div>
+        ${q?`<div style="font-size:12px;color:var(--txt-3);margin-top:4px">${filtered.length}件の結果</div>`:''}
+      </div>
+      <div style="flex:1;overflow-y:auto" id="msg-list">
+        ${filtered.length
+          ? filtered.map(m=>this._msgHtml(m,q)).join('')
+          : '<div style="padding:32px;text-align:center;color:var(--txt-3)">一致するメッセージがありません</div>'}
+      </div>`;
+  },
+
+  _msgHtml(m, q) {
+    const sp = ['[写真]','[スタンプ]','[動画]','[音声メッセージ]','[ファイル]','[GIF]'].includes(m.content);
+    const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}) : '';
+    let text = H(m.content);
+    if (q && !sp) {
+      const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');
+      text = text.replace(re, s => `<mark>${s}</mark>`);
+    }
+    return `<div class="msg-row">
+      <div class="msg-time">${time}</div>
+      <div class="msg-body">
+        <div class="msg-sender">${H(m.senderName)}</div>
+        <div class="msg-text${sp?' sp':''}">${text}</div>
+      </div>
+    </div>`;
+  },
+
+  _msgSearch(v) {
+    this.s.msgQ = v;
+    this._tabBody(DB.sessions().find(s=>s.id===this.s.sid));
+  },
+
+  // ── QUERY ─────────────────────────────────────────────────────────
+  _query(sess, wrap) {
+    const results = DB.qResults(sess.id);
+    wrap.innerHTML = `
+      ${!DB.apiKey() ? `<div class="warn-banner">⚠ 設定タブでAPIキーを設定してください</div>` : ''}
+      <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px" id="q-area">
+        ${!results.length && !this.s.loading ? this._suggestions(false, 'query-input') : ''}
+        ${this.s.loading ? this._loadCard(false) : ''}
+        ${results.map(r=>this._qCard(r,'session')).join('')}
+      </div>
+      <div class="input-area">
+        <div class="input-opts">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--txt-3)">
+            <input type="checkbox" ${this.s.fullCtx?'checked':''} onchange="App.s.fullCtx=this.checked"
+              style="accent-color:var(--accent)">全履歴使用（高コスト）
+          </label>
+          <button class="toggle-btn ${this.s.crossMode?'on':''}"
+            onclick="App.s.crossMode=!App.s.crossMode;App._tab(1)">
+            ⑂ 横断: ${this.s.crossMode?'ON':'OFF'}
+          </button>
+        </div>
+        ${this.s.crossMode?`<div style="font-size:12px;color:var(--txt-3);margin-bottom:8px">全${DB.sessions().length}件のトークを横断して検索します</div>`:''}
+        <div class="input-row">
+          <textarea id="query-input" placeholder="質問を入力..." rows="1"
+            onkeydown="App._qKey(event,'${sess.id}')"
+            oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+          <button class="send-btn" onclick="App._sendQ('${sess.id}')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>`;
+  },
+
+  _suggestions(isCross, inputId) {
+    const items = isCross
+      ? ['今月の予定や約束事を全トークからまとめて', '○○について誰かが話していたのはどのトーク？', '全トークを通じてよく話題になっていることは？']
+      : ['このトークの主なトピックは？', '誰が一番多くメッセージを送っていた？', '重要な決定事項をまとめて', '○○についていつ、誰が話したか教えて'];
+    return `<div style="padding:32px 0 16px;display:flex;flex-direction:column;align-items:center;gap:16px">
+      <div style="font-size:28px">✨</div>
+      <div style="font-weight:600;color:var(--txt-2)">AIに質問する</div>
+      <div style="font-size:12px;color:var(--txt-3);text-align:center">回答には「どのトーク・誰・いつ」の出典が付きます</div>
+      <div style="width:100%;display:flex;flex-direction:column;gap:8px">
+        ${items.map(t=>`
+          <button onclick="document.getElementById('${inputId}').value=\`${t.replace(/`/g,'\\`')}\`"
+            style="display:flex;align-items:center;gap:10px;background:var(--surface);border:none;border-radius:10px;padding:10px 14px;cursor:pointer;width:100%;text-align:left">
+            <span style="color:var(--accent);font-size:13px">💡</span>
+            <span style="color:var(--txt-2);font-size:14px;flex:1">${H(t)}</span>
+            <span style="color:var(--txt-3);font-size:11px">↖</span>
+          </button>`).join('')}
+      </div>
+    </div>`;
+  },
+
+  _loadCard(isCross) {
+    const sessions = DB.sessions();
+    return `<div class="loading-row">
+      <div class="spin"></div>
+      <div>
+        <div style="font-size:14px;color:var(--txt-2)">${isCross?`${sessions.length}件のトークを並列検索中...`:'検索・推論中...'}</div>
+        ${isCross?`<div style="font-size:12px;color:var(--txt-3);margin-top:2px">${sessions.map(s=>H(s.name)).join('、')}</div>`:''}
+      </div>
+    </div>`;
+  },
+
+  _qCard(r, ctx) {
+    const srcOpen = this.s.srcOpen?.has(r.id);
+    const ansOpen = this.s.ansOpen?.has(r.id);
+    const preview = r.response.slice(0, 300);
+    const needsExpand = r.response.length > 300;
+    const date = new Date(r.createdAt).toLocaleDateString('ja-JP');
+    const fmtDate = iso => iso
+      ? new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(iso))
+      : '日時不明';
+    const badges = [
+      r.isCross ? `<span class="badge b-accent">横断</span>` : '',
+      ...(r.sessions||[]).slice(0,3).map(n=>`<span class="badge b-muted">${H(n)}</span>`),
+      (r.sessions||[]).length>3 ? `<span class="badge b-muted">+${r.sessions.length-3}</span>` : '',
+    ].filter(Boolean).join('');
+
+    return `<div class="q-card" id="qr_${r.id}">
+      <div class="q-question">
+        <span style="color:var(--txt-3)">👤</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:14px">${H(r.query)}</div>
+          <div style="margin-top:5px">${badges}</div>
+        </div>
+        <div style="font-size:11px;color:var(--txt-3);white-space:nowrap;margin-left:8px">${date}</div>
+      </div>
+      <div class="q-answer">
+        <span style="color:var(--accent)">✨</span>
+        <div style="flex:1;min-width:0">
+          <div class="q-answer-text">${H(ansOpen||!needsExpand ? r.response : preview)}</div>
+          ${needsExpand?`<button onclick="App._toggleAns('${r.id}','${ctx}')"
+            style="background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer;margin-top:6px">
+            ${ansOpen?'折りたたむ ▲':'続きを読む ▼'}
+          </button>`:''}
+        </div>
+      </div>
+      ${(r.sources||[]).length ? `
+        <button class="q-src-toggle" onclick="App._toggleSrc('${r.id}','${ctx}')">
+          📎 参照した${r.sources.length}件のメッセージ
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="margin-left:auto">
+            <path d="${srcOpen?'M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z':'M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z'}"/>
+          </svg>
+        </button>
+        ${srcOpen ? r.sources.map(src=>`
+          <div class="src-row">
+            <div class="src-bar"></div>
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <span class="src-session">${H(src.sessionName)}</span>
+                <span style="color:var(--txt-3);font-size:10px">/</span>
+                <span class="src-sender">${H(src.senderName)}</span>
+                <span style="margin-left:auto;white-space:nowrap" class="src-date">${fmtDate(src.timestamp)}</span>
+              </div>
+              <div class="src-preview">${H(src.contentPreview)}</div>
+            </div>
+          </div>`).join('') : ''}
+      ` : ''}
+    </div>`;
+  },
+
+  _toggleSrc(id, ctx) {
+    if (!this.s.srcOpen) this.s.srcOpen = new Set();
+    this.s.srcOpen.has(id) ? this.s.srcOpen.delete(id) : this.s.srcOpen.add(id);
+    this._rerenderQCtx(ctx);
+  },
+  _toggleAns(id, ctx) {
+    if (!this.s.ansOpen) this.s.ansOpen = new Set();
+    this.s.ansOpen.has(id) ? this.s.ansOpen.delete(id) : this.s.ansOpen.add(id);
+    this._rerenderQCtx(ctx);
+  },
+  _rerenderQCtx(ctx) {
+    if (ctx === 'global') { this._global(); return; }
+    const sess = DB.sessions().find(s=>s.id===this.s.sid);
+    this._tabBody(sess);
+  },
+
+  _qKey(e, sid) { if (e.key==='Enter'&&!e.shiftKey) { e.preventDefault(); this._sendQ(sid); } },
+
+  async _sendQ(sid) {
+    const inp = document.getElementById('query-input');
+    const q = inp?.value?.trim();
+    if (!q) return;
+    inp.value = ''; inp.style.height = 'auto';
+    this.s.loading = true;
+    this._tabBody(DB.sessions().find(s=>s.id===sid));
+    try {
+      const r = this.s.crossMode
+        ? await Claude.queryCross(q, DB.sessions())
+        : await Claude.query(q, DB.sessions().find(s=>s.id===sid), this.s.fullCtx);
+      DB.saveQR({ id:uid(), query:q, response:r.response, sources:r.sources, sessions:r.sessions, isCross:r.isCross, sessionId:sid, createdAt:new Date().toISOString() });
+    } catch(e) {
+      DB.saveQR({ id:uid(), query:q, response:`❌ ${e.message}`, sources:[], sessions:[], isCross:false, sessionId:sid, createdAt:new Date().toISOString() });
+    } finally {
+      this.s.loading = false;
+      this._tabBody(DB.sessions().find(s=>s.id===sid));
+    }
+  },
+
+  // ── SUMMARY ───────────────────────────────────────────────────────
+  _summary(sess, wrap) {
+    const parts = (sess.participantNames||[]).slice(0,12);
+    wrap.innerHTML = `
+      <div style="overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px">
+        <div class="card">
+          <div class="stats-row">
+            <div class="stat"><div class="stat-v">${sess.messageCount}</div><div class="stat-l">メッセージ</div></div>
+            <div class="stat-sep"></div>
+            <div class="stat"><div class="stat-v">${(sess.participantNames||[]).length}</div><div class="stat-l">参加者</div></div>
+          </div>
+          ${sess.dateRange?`<div style="padding:0 14px 12px;font-size:13px;color:var(--txt-2)">📅 ${H(sess.dateRange)}</div>`:''}
+          ${parts.length?`<div class="tags">${parts.map(p=>`<span class="tag">${H(p)}</span>`).join('')}</div>`:''}
+        </div>
+        <div class="card" style="padding:14px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <span>✨</span><span style="font-weight:600">AI サマリー</span>
+            ${sess.summary?`<button onclick="App._genSum('${sess.id}')"
+              style="margin-left:auto;background:none;border:none;color:var(--txt-3);font-size:12px;cursor:pointer">再生成</button>`:''}
+          </div>
+          <div id="sum-body">
+            ${sess.summary
+              ? `<div style="font-size:14px;color:var(--txt-2);white-space:pre-wrap;line-height:1.7">${H(sess.summary)}</div>`
+              : `<button class="btn-p" onclick="App._genSum('${sess.id}')">✨ サマリーを生成する</button>
+                 <div style="font-size:12px;color:var(--txt-3);margin-top:8px;text-align:center">Claude Haiku API（低コスト）を使用します</div>`}
+          </div>
+        </div>
+      </div>`;
+  },
+
+  async _genSum(id) {
+    const el = document.getElementById('sum-body');
+    if (el) el.innerHTML = '<div class="loading-row"><div class="spin"></div><span style="font-size:14px;color:var(--txt-2)">生成中...</span></div>';
+    try {
+      const s = await Claude.summarize(id);
+      DB.setSummary(id, s);
+      this._tabBody(DB.sessions().find(x=>x.id===id));
+    } catch(e) {
+      if (el) el.innerHTML = `<div style="color:var(--danger);font-size:14px">❌ ${H(e.message)}</div>`;
+    }
+  },
+
+  // ── GLOBAL QUERY ──────────────────────────────────────────────────
+  _global() {
+    const sessions = DB.sessions();
+    const results = DB.qResults(null, true);
+    const el = document.getElementById('v-global');
+    el.innerHTML = `
+      <div class="hdr">
+        <button class="hdr-btn" onclick="App.go('home')">${ico_back}</button>
+        <h1 style="font-size:16px">横断検索</h1>
+      </div>
+      <div class="cross-banner">
+        <span style="font-size:12px;color:var(--txt-2)">⑂ 対象: </span>
+        <span class="badge b-accent">全${sessions.length}件</span>
+        ${sessions.slice(0,5).map(s=>`<span class="badge b-muted">${H(s.name)}</span>`).join('')}
+        ${sessions.length>5?`<span class="badge b-muted">+${sessions.length-5}</span>`:''}
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px" id="g-area">
+        ${!results.length && !this.s.gloading ? this._suggestions(true,'g-input') : ''}
+        ${this.s.gloading ? this._loadCard(true) : ''}
+        ${results.map(r=>this._qCard(r,'global')).join('')}
+      </div>
+      <div class="input-area">
+        <div class="input-row">
+          <textarea id="g-input" placeholder="全トークを横断して質問..." rows="1"
+            onkeydown="App._gKey(event)"
+            oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+          <button class="send-btn" onclick="App._sendGlobal()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>`;
+  },
+
+  _gKey(e) { if (e.key==='Enter'&&!e.shiftKey) { e.preventDefault(); this._sendGlobal(); } },
+
+  async _sendGlobal() {
+    const inp = document.getElementById('g-input');
+    const q = inp?.value?.trim();
+    if (!q) return;
+    inp.value = ''; inp.style.height = 'auto';
+    this.s.gloading = true;
+    this._global();
+    const sessions = DB.sessions();
+    const fakeSid = sessions[0]?.id ?? uid();
+    try {
+      const r = await Claude.queryCross(q, sessions);
+      DB.saveQR({ id:uid(), query:q, response:r.response, sources:r.sources, sessions:r.sessions, isCross:true, sessionId:fakeSid, createdAt:new Date().toISOString() });
+    } catch(e) {
+      DB.saveQR({ id:uid(), query:q, response:`❌ ${e.message}`, sources:[], sessions:sessions.map(s=>s.name), isCross:true, sessionId:fakeSid, createdAt:new Date().toISOString() });
+    } finally {
+      this.s.gloading = false;
+      this._global();
+    }
+  },
+
+  // ── SETTINGS ──────────────────────────────────────────────────────
+  _settings() {
+    const sessions = DB.sessions();
+    const key = DB.apiKey();
+    const qrCount = JSON.parse(localStorage.getItem('lca_qr') || '[]').length;
+    const el = document.getElementById('v-settings');
+    el.innerHTML = `
+      <div class="hdr"><h1>設定</h1></div>
+      <div style="overflow-y:auto;padding-bottom:32px">
+
+        <div style="padding:16px">
+          <div class="set-label">Claude API キー</div>
+          <div class="card">
+            <div class="set-row">
+              <span style="color:${key?'var(--accent)':'var(--warn)'}">${key?'✓ 設定済み':'⚠ 未設定'}</span>
+            </div>
+            <div class="set-row">
+              <input type="password" id="key-inp" class="set-input"
+                placeholder="sk-ant-api03-..." value="${H(key)}">
+              <button onclick="document.getElementById('key-inp').type=document.getElementById('key-inp').type==='password'?'text':'password'"
+                style="background:none;border:none;color:var(--txt-2);cursor:pointer;font-size:12px">表示</button>
+            </div>
+            <div class="set-row" style="padding:8px 14px">
+              <button class="btn-p" id="save-btn" onclick="App._saveKey()" style="border-radius:8px;padding:10px">保存する</button>
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--txt-3);margin-top:8px;padding:0 4px">
+            console.anthropic.com で取得できます。このデバイスのみに保存されます。
+          </div>
+        </div>
+
+        <div style="padding:0 16px 16px">
+          <div class="set-label">使用状況</div>
+          <div class="card">
+            <div class="set-row"><label>使用モデル</label><span class="set-val">Claude Haiku（低コスト）</span></div>
+            <div class="set-row"><label>AI質問履歴</label><span class="set-val">${qrCount}件</span></div>
+          </div>
+        </div>
+
+        <div style="padding:0 16px 16px">
+          <div class="set-label">データ管理</div>
+          <div class="card">
+            <div class="set-row"><label>インポート済みトーク</label><span class="set-val">${sessions.length}件</span></div>
+            <div class="set-row">
+              <button onclick="if(confirm('AI質問履歴を削除しますか？')){DB.clearQR();App._settings();}"
+                style="background:none;border:none;cursor:pointer;color:var(--danger)">AI質問履歴を削除</button>
+            </div>
+            <div class="set-row">
+              <button onclick="if(confirm('全データを削除しますか？')){localStorage.clear();location.reload();}"
+                style="background:none;border:none;cursor:pointer;color:var(--danger)">全データを削除</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:0 16px 16px">
+          <div class="set-label">アプリ情報</div>
+          <div class="card">
+            <div class="set-row"><label>バージョン</label><span class="set-val">1.0 (Web POC)</span></div>
+            <div class="set-row"><label>サーバー</label><span class="set-val">Python stdlib のみ</span></div>
+            <div class="set-row"><label>ストレージ</label><span class="set-val">ブラウザ localStorage</span></div>
+          </div>
+        </div>
+      </div>`;
+  },
+
+  _saveKey() {
+    const v = document.getElementById('key-inp')?.value?.trim();
+    if (v !== undefined) DB.setKey(v);
+    const btn = document.getElementById('save-btn');
+    if (btn) { btn.textContent = '✓ 保存しました'; setTimeout(() => { btn.textContent = '保存する'; }, 2000); }
+    this._settings();
+  },
+
+  // ── IMPORT ────────────────────────────────────────────────────────
+  _pick() { document.getElementById('file-picker').click(); },
+  async _files(files) {
+    for (const f of files) {
+      const text = await f.text();
+      DB.save(Parser.parse(text, f.name.replace(/\.txt$/i, '')));
+    }
+    this.go('home');
+  },
+
+  init() {
+    document.getElementById('file-picker').addEventListener('change', e => {
+      const files = Array.from(e.target.files || []);
+      if (files.length) this._files(files);
+      e.target.value = '';
+    });
+    this._render();
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════════════
+function uid() { return crypto.randomUUID(); }
+function H(s) {
+  return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function mkSources(msgs, sessionName, limit = 30) {
+  return msgs.slice(0, limit).map(m => ({
+    id: m.id, sessionName, senderName: m.senderName,
+    timestamp: m.timestamp, contentPreview: m.content.slice(0, 60),
+  }));
+}
+
+// ── SVG Icons ─────────────────────────────────────────────────────
+const ico_plus   = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>`;
+const ico_back   = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>`;
+const ico_search = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`;
+const ico_search_sm = `<svg width="14" height="14" viewBox="0 0 24 24" fill="var(--txt-3)"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`;
+function ico_bubble(size) { return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>`; }
+
+App.init();
+</script>
+</body>
+</html>
