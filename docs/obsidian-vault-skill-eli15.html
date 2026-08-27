@@ -231,19 +231,45 @@
     .page { padding: 0 20px 72px; }
     .tree .verdict { margin-left: 12px; }
   }
+
+  /* ---------- layer cards ---------- */
+  .layers { display: grid; gap: 12px; margin: 22px 0; }
+  .layer {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+    padding: 16px 20px; display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 6px 18px;
+  }
+  .layer .tier {
+    font-family: "M PLUS 1 Code", monospace; font-size: 11.5px; color: var(--accent);
+    background: var(--accent-soft); border-radius: 3px; padding: 1px 8px;
+    justify-self: start; align-self: start; margin-top: 4px;
+  }
+  .layer h3 { margin: 0; font-size: 16px; }
+  .layer .body { grid-column: 2; font-size: 14.5px; color: var(--ink-2); line-height: 1.8; }
+  .layer .body .path { font-family: "M PLUS 1 Code", monospace; font-size: 12.5px; color: var(--muted); }
+
+  .verb {
+    display: inline-block; font-family: "M PLUS 1 Code", monospace; font-size: 12px;
+    background: var(--accent); color: var(--on-accent); border-radius: 3px; padding: 0 7px;
+    margin-right: 6px;
+  }
+
+  @media (max-width: 640px) {
+    .layer { grid-template-columns: 1fr; }
+    .layer .body { grid-column: 1; }
+  }
 </style>
 
 <header class="top">
   <div class="top-inner">
-    <div class="eyebrow">Obsidian_VN × Claude Code</div>
+    <div class="eyebrow">Obsidian_VN × Claude Code × LLM Wiki</div>
     <h1>Obsidian を司書にする</h1>
     <p class="lede">
-      378 ファイルの Vault を、Claude が「必要なときだけ、必要な分だけ」自分で選んで読むようにする。
-      その作り方を、前提知識ゼロから順番に。
+      Vault を 2 つの役割で使う。ひとつは <strong>スキルの置き場</strong>、もうひとつは <strong>Claude の外部記憶</strong>。
+      378 ファイルの Vault を、育つ知識ベースに変えるまでの手順を、前提知識ゼロから順番に。
     </p>
     <div class="who">
-      作るのはスクリプト 1 本とメモ 2 枚だけ。所要 30 分ほど。<br>
-      ノートを 1 枚も書き換えずに済む方式で組みます。
+      現状：スキルはまだ 0 個。あるのは別アカウントから移した Claude のアーカイブと、手で書いたメモ。<br>
+      ここから始めて、最終的にスキル 3 枚とスクリプト 1 本になります。
     </div>
   </div>
 </header>
@@ -256,36 +282,143 @@
     <h2>何を作るのか</h2>
     <p>
       Claude Code には「スキル」というしくみがあります。
-      <strong>スキル＝ Claude に渡しておくメモ書き</strong>だと思ってください。
+      <strong>スキル＝ Claude に渡しておく手順書</strong>だと思ってください。
       「こういうときは、こうやって」と書いた Markdown ファイルを決まった場所に置くと、Claude がそれを読んで動く。
     </p>
     <p>
-      ここで作るのは、そのメモを <strong>2 枚だけ</strong> 置く方法です。
-      メモの中身は「あなたのノートの一覧はこれ。この中から関係しそうなものを選んで読め」という指示。
-      <strong>Vault の中身は 1 文字も書き換えません。</strong>
+      やることは 2 つです。<strong>手順書を Vault の中に置いて Claude とつなぐ</strong>こと。
+      そして<strong>残りのメモを、Claude が必要なときだけ開く外部記憶にする</strong>こと。
+      この 2 つは同じ Vault に同居しますが、性質がまったく違うので、置き場所からきっちり分けます。
     </p>
     <p class="big-point">
-      ノートを 378 個スキルにするのではなく、<br>
-      「378 個の目次を見せる係」を作る。
+      手順書は「Claude が実行するもの」。<br>
+      メモは「Claude が参照するもの」。<br>
+      混ぜない。
     </p>
   </section>
 
   <!-- ============================================================ -->
+  <section id="wiki">
+    <div class="num">下敷きにする考え方</div>
+    <h2>LLM Wiki ── 毎回調べ直さない</h2>
+    <p>
+      Andrej Karpathy 氏が提唱した <strong>LLM Wiki</strong> は、AI に知識を持たせる方法としてはっきりした型を示しています。
+      ふつうの RAG（検索してその場で読む方式）は、質問のたびにゼロから資料を漁って、終わったら忘れる。
+      LLM Wiki はそうしない。<strong>資料を一度きり「コンパイル」して Wiki に落とし、以降の質問は Wiki にだけ聞く。</strong>
+    </p>
+    <p>
+      Karpathy 氏の言い方を借りると「Obsidian が IDE、LLM がプログラマ、Wiki がコードベース、あなたは設計者」。
+      Obsidian を使っている時点で、あなたはこの型に一番近い場所にいます。
+    </p>
+
+    <h3>構成は 3 層 × 3 操作</h3>
+    <div class="layers">
+      <div class="layer">
+        <span class="tier">source</span>
+        <h3>生の素材</h3>
+        <div class="body">
+          加工していない原材料。あなたの場合は <span class="path">ClaudeArchive/</span> の会話ログと、手書きのメモ。
+          <strong>ここは触らない。消さない。</strong>あとから何度でも汲み直せる井戸として残します。
+        </div>
+      </div>
+      <div class="layer">
+        <span class="tier">wiki</span>
+        <h3>整形済みの知識</h3>
+        <div class="body">
+          素材から抽出して、1 ページ 1 トピックに整えたもの。<span class="path">_Wiki/</span> に作ります。
+          Claude がふだん読むのはここだけ。<strong>今はまだ空っぽ</strong>で、これから育てます。
+        </div>
+      </div>
+      <div class="layer">
+        <span class="tier">schema</span>
+        <h3>維持のルール</h3>
+        <div class="body">
+          「どう取り込み、どう書き、どう直すか」を書いた設計図。
+          今回はこれを <strong>スキルそのもの</strong>として <span class="path">_Skills/</span> に置きます。
+          ルールが実行可能な形で Vault に入る、というのがこの作りの肝です。
+        </div>
+      </div>
+    </div>
+
+    <p>この 3 層に対して、操作も 3 つに決まっています。作るスキルはこれと 1 対 1 で対応させます。</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>操作</th><th>やること</th><th>作るスキル</th></tr></thead>
+        <tbody>
+          <tr><td><span class="verb">ingest</span></td><td>素材から知識を抜き出して Wiki ページにする</td><td><code>/wiki-ingest</code></td></tr>
+          <tr><td><span class="verb">query</span></td><td>Wiki を引いて答える（日常の 9 割はこれ）</td><td><code>/wiki</code></td></tr>
+          <tr><td><span class="verb">lint</span></td><td>重複・矛盾・リンク切れを見つけて直す</td><td><code>/wiki-lint</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 620 290" role="img"
+             aria-label="生の素材を ingest で Wiki に取り込み、query で Wiki を引いて答え、lint で Wiki 自身を整備する循環。3つの操作はすべて _Skills フォルダの SKILL.md が定義している">
+          <defs>
+            <marker id="f1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+            </marker>
+            <marker id="f2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"></path>
+            </marker>
+          </defs>
+
+          <rect x="16" y="30" width="168" height="68" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+          <text x="100" y="58" font-size="13.5" fill="currentColor" text-anchor="middle">生の素材</text>
+          <text x="100" y="78" font-size="10.5" fill="currentColor" opacity=".65" text-anchor="middle">ClaudeArchive / 手動メモ</text>
+
+          <line x1="184" y1="64" x2="234" y2="64" stroke="var(--accent)" stroke-width="1.4" marker-end="url(#f2)"></line>
+          <text x="209" y="52" font-size="10.5" fill="var(--accent)" text-anchor="middle">ingest</text>
+
+          <rect x="240" y="30" width="140" height="68" rx="5" fill="none" stroke="var(--accent)" stroke-width="1.6"></rect>
+          <text x="310" y="58" font-size="13.5" fill="var(--accent)" text-anchor="middle">_Wiki</text>
+          <text x="310" y="78" font-size="10.5" fill="currentColor" opacity=".65" text-anchor="middle">整形済み・1頁1話題</text>
+
+          <line x1="380" y1="64" x2="430" y2="64" stroke="var(--accent)" stroke-width="1.4" marker-end="url(#f2)"></line>
+          <text x="405" y="52" font-size="10.5" fill="var(--accent)" text-anchor="middle">query</text>
+
+          <rect x="436" y="30" width="168" height="68" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+          <text x="520" y="58" font-size="13.5" fill="currentColor" text-anchor="middle">回答</text>
+          <text x="520" y="78" font-size="10.5" fill="currentColor" opacity=".65" text-anchor="middle">出典パス付き</text>
+
+          <path d="M 366 98 C 396 152, 254 152, 248 100" fill="none" stroke="var(--accent)" stroke-width="1.4" marker-end="url(#f2)"></path>
+          <text x="310" y="146" font-size="10.5" fill="var(--accent)" text-anchor="middle">lint</text>
+
+          <line x1="209" y1="192" x2="209" y2="120" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" opacity=".5" marker-end="url(#f1)"></line>
+          <line x1="310" y1="192" x2="310" y2="164" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" opacity=".5" marker-end="url(#f1)"></line>
+          <line x1="405" y1="192" x2="405" y2="120" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" opacity=".5" marker-end="url(#f1)"></line>
+
+          <rect x="16" y="196" width="588" height="58" rx="5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4"></rect>
+          <text x="310" y="222" font-size="13" fill="currentColor" text-anchor="middle">_Skills/</text>
+          <text x="310" y="242" font-size="10.5" fill="currentColor" opacity=".65" text-anchor="middle">3 つの操作を SKILL.md として定義する層</text>
+        </svg>
+      </div>
+      <figcaption>
+        素材は消さずに残り、Wiki だけが育つ。3 つの操作はすべて Vault 内の <code>_Skills/</code> に手順書として置かれ、
+        Obsidian から書き換えられる。
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- ============================================================ -->
   <section id="why">
-    <div class="num">考え方</div>
-    <h2>なぜ「全部スキルにする」ではダメなのか</h2>
+    <div class="num">前提知識</div>
+    <h2>なぜ「メモを全部スキルにする」ではダメなのか</h2>
     <p>
       Claude はセッションを開いた瞬間に、<strong>すべてのスキルの説明文（description）を暗記した状態</strong>で会話を始めます。
       本文は読みません。読むのは「使う」と決めたときだけ。
     </p>
     <p>
-      つまり説明文は「常に持ち歩く荷物」です。ノートを 378 個スキルにすると、378 行の説明文を毎回カバンに入れて歩くことになる。
+      つまり説明文は「常に持ち歩く荷物」です。メモを 378 個スキルにすると、378 行の説明文を毎回カバンに入れて歩くことになる。
       重いうえに、似た説明が並んで「どれだっけ」となり、選び間違いも増えます。
+      だからスキルは <strong>3 枚だけ</strong>にして、メモは<strong>読まれるデータ</strong>の側に置きます。
     </p>
 
     <div class="analogy">
       <h3>図書館でたとえると</h3>
-      <p>Claude は司書、あなたのノートは本、Vault は書庫です。</p>
+      <p>Claude は司書、あなたのメモは本、Vault は書庫です。</p>
       <dl>
         <dt>ダメな方法</dt>
         <dd>本 378 冊を全部カウンターに積んでおく。邪魔だし、探すのに時間がかかる。</dd>
@@ -293,22 +426,18 @@
         <dd>カウンターには <strong>目次カード 1 枚</strong>だけ。司書はそれを見て、書庫から必要な 2〜3 冊だけ取りに行く。</dd>
       </dl>
     </div>
-  </section>
 
-  <!-- ============================================================ -->
-  <section id="how">
-    <div class="num">しくみ</div>
-    <h2>選別は 2 回に分かれている</h2>
+    <h3>選別は 2 回に分かれている</h3>
     <p>
       ここが一番大事なところです。Claude は 2 段階でふるいにかけます。
-      <strong>1 回目は説明文だけを見て</strong>、そもそもノートを引くべき話かを判断する。
-      <strong>2 回目は目次を見て</strong>、どのノートを開くかを決める。
+      <strong>1 回目は説明文だけを見て</strong>、そもそも Wiki を引くべき話かを判断する。
+      <strong>2 回目は目次を見て</strong>、どのページを開くかを決める。
     </p>
 
     <figure>
       <div class="diagram">
         <svg viewBox="0 0 620 330" role="img"
-             aria-label="質問を受けた Claude が、まず説明文だけで vault スキルを使うか判断し、次に index.sh が出す目次から2〜3件を選び、選んだノートの本文だけを読み込む2段階の流れ">
+             aria-label="質問を受けた Claude が、まず説明文だけで wiki スキルを使うか判断し、次に index.sh が出す目次から2〜3件を選び、選んだノートの本文だけを読み込む2段階の流れ">
           <defs>
             <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
@@ -334,7 +463,7 @@
 
           <rect x="24" y="228" width="300" height="66" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
           <text x="42" y="254" font-size="14" fill="currentColor">③ 本文を読む</text>
-          <text x="42" y="276" font-size="11.5" fill="currentColor" opacity=".7">選んだノートだけを開く</text>
+          <text x="42" y="276" font-size="11.5" fill="currentColor" opacity=".7">選んだページだけを開く</text>
 
           <rect x="424" y="122" width="172" height="172" rx="5" fill="none" stroke="var(--accent)" stroke-width="1.4"></rect>
           <text x="510" y="150" font-size="13" fill="var(--accent)" text-anchor="middle">Obsidian_VN</text>
@@ -354,55 +483,53 @@
       </div>
       <figcaption>
         Vault からコンテキストに入るのは、②では 1 行の見出しだけ、③では選ばれた数枚の本文だけ。
-        残り 375 枚は最後までディスク上に置かれたまま動かない。
+        残りは最後までディスク上に置かれたまま動かない。
       </figcaption>
     </figure>
 
     <p>
       1 回目の判断材料は説明文だけなので、<strong>説明文の書き方が精度を決めます</strong>。
-      逆に言えば、チューニングする場所は 1 か所しかない。あとで効かないと感じたら、まずここを疑ってください。
+      チューニングする場所は 1 か所しかない。効かないと感じたら、まずここを疑ってください。
     </p>
   </section>
 
   <!-- ============================================================ -->
   <section id="plan">
     <div class="num">設計</div>
-    <h2>あなたの Vault をどう割るか</h2>
+    <h2>Vault をどう作り替えるか</h2>
     <p>
-      378 ファイルを 1 つの目次にすると、それだけで数千トークンになります。動きますが、もったいない。
-      幸い <code>Obsidian_VN</code> はもう用途ごとにフォルダが分かれているので、<strong>その線でスキルを分けます</strong>。
-      1 回目の選別がフォルダ単位になるぶん、目次も軽く、選別も当たりやすくなります。
+      いま <code>Obsidian_VN</code> にはスキルがありません。素材だけがある状態です。
+      そこに <code>_Skills/</code> と <code>_Wiki/</code> を新設して、既存フォルダは素材として据え置きます。
+      アンダースコア始まりにするのは、あなたが既に <code>_MOC_</code> や <code>_CrossMemory</code> で使っている流儀に合わせるためです。
     </p>
 
     <div class="tree">
       <div class="row"><span class="name">Obsidian_VN/</span></div>
-      <div class="row"><span class="name">├─ ClaudeArchive/</span><span class="verdict v-in">vault-archive</span></div>
-      <div class="row"><span class="name dim">│　├─ Chats/, Projects/</span></div>
-      <div class="row"><span class="name dim">│　└─ _CrossMemory, _MOC_ClaudeArchive</span><span class="verdict v-in">入口として重視</span></div>
-      <div class="row"><span class="name">├─ VNworks/</span><span class="verdict v-in">vault-works</span></div>
-      <div class="row"><span class="name dim">│　└─ 68th全国握手会…, ブラザー様_大丸様…</span></div>
-      <div class="row"><span class="name">├─ 個人用/</span><span class="verdict v-out">最初は外す</span></div>
-      <div class="row"><span class="name">├─ 対人メモ/</span><span class="verdict v-out">最初は外す</span></div>
-      <div class="row"><span class="name dim">└─ ルート直下の PDF / PNG</span><span class="verdict v-later">後で足す</span></div>
+      <div class="row"><span class="name">├─ _Skills/</span><span class="verdict v-in">新設・手順書</span></div>
+      <div class="row"><span class="name dim">│　├─ wiki/SKILL.md</span></div>
+      <div class="row"><span class="name dim">│　├─ wiki-ingest/SKILL.md</span></div>
+      <div class="row"><span class="name dim">│　└─ _lib/index.sh</span></div>
+      <div class="row"><span class="name">├─ _Wiki/</span><span class="verdict v-in">新設・外部記憶</span></div>
+      <div class="row"><span class="name dim">│　└─ （最初は空。育てていく）</span></div>
+      <div class="row"><span class="name">├─ ClaudeArchive/</span><span class="verdict v-later">素材（据え置き）</span></div>
+      <div class="row"><span class="name">├─ VNworks/</span><span class="verdict v-later">素材（据え置き）</span></div>
+      <div class="row"><span class="name">├─ 個人用/</span><span class="verdict v-out">当面は対象外</span></div>
+      <div class="row"><span class="name">└─ 対人メモ/</span><span class="verdict v-out">当面は対象外</span></div>
     </div>
 
-    <p>
-      作るスキルは <strong><code>vault-works</code>（案件）</strong>と <strong><code>vault-archive</code>（過去の Claude 会話）</strong>の 2 枚。
-      性質がまるで違うので、説明文も自然に書き分けられます。
-    </p>
+    <div class="note">
+      <div class="note-title">スキルを Vault に置くと何がうれしいか</div>
+      <p>
+        Obsidian の画面で手順書を書き足せること。そして iCloud で同期されるので、
+        <strong>スキルの定義そのものがバックアップされ、他のパソコンでも使い回せる</strong>こと。
+        Claude Code 側にはショートカット（シンボリックリンク）を置くだけで、実体は Vault に一本化されます。
+      </p>
+    </div>
     <div class="note">
       <div class="note-title">個人用 / 対人メモ を最初に外す理由</div>
       <p>
         技術的な問題ではなく、切り分けの問題です。仕事の質問をしたときに人物メモが引っ張られてくると、
-        邪魔なうえに意図しない情報が会話に混ざります。まず仕事側で運用感をつかんで、
-        必要なら <code>vault-personal</code> を 3 枚目として足すのが安全です。
-      </p>
-    </div>
-    <div class="note">
-      <div class="note-title">_MOC / _CrossMemory は消さずに載せる</div>
-      <p>
-        アンダースコアで始まる目次ノート（MOC ＝ Map of Content）は、あなたが手で整理した最良の入口です。
-        自動生成の目次より質が高いので、除外せず、むしろ「まずここを見ろ」と手順に書きます。
+        邪魔なうえに意図しない情報が会話に混ざります。まず仕事側で運用感をつかんでから足すのが安全です。
       </p>
     </div>
   </section>
@@ -417,19 +544,22 @@
       <div class="step-head"><span class="step-badge">STEP 1</span><h3>パソコン側の Vault の場所を突き止める</h3></div>
       <p>
         iPhone の Obsidian は iCloud 経由で同期していることがほとんどです。
-        その場合 Mac 側の実体は、ものすごく長いパスの奥にあります。まず居場所を確認します。
+        その場合 Mac 側の実体は、長いパスの奥にあります。まず居場所を確認します。
       </p>
       <div class="code">
         <div class="code-label"><span>ターミナル</span><span class="tag">Mac</span></div>
 <pre><span class="c"># iCloud 同期の Obsidian はここ</span>
 ls ~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/
 
-<span class="c"># 見つからなければ、名前で探す（少し時間がかかる）</span>
+<span class="c"># 見つからなければ名前で探す（少し時間がかかる）</span>
 find ~ -maxdepth 6 -type d -name "Obsidian_VN" 2>/dev/null</pre>
       </div>
-      <p>
-        出てきたパスを控えておいてください。以降 <code>$VAULT</code> と書いてある部分に入ります。
-      </p>
+      <p>出てきたパスを控えます。以降 <code>$VAULT</code> と書いてある部分に入ります。</p>
+      <div class="code">
+        <div class="code-label"><span>ターミナル</span><span class="tag">この先ずっと使うので変数にしておく</span></div>
+<pre>export VAULT="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian_VN"
+ls "$VAULT"   <span class="c"># 中身が出れば正解</span></pre>
+      </div>
       <div class="note warn">
         <div class="note-title">iCloud の「まだ降りてきてない」問題</div>
         <p>
@@ -438,20 +568,35 @@ find ~ -maxdepth 6 -type d -name "Obsidian_VN" 2>/dev/null</pre>
         </p>
         <p>
           Finder で Vault フォルダを右クリック →「今すぐダウンロード」で全部降ろしておくのが確実です。
-          ふだんから Mac で Obsidian を開いているなら、たいてい降りています。
         </p>
       </div>
     </div>
 
     <!-- step 2 -->
     <div class="step">
-      <div class="step-head"><span class="step-badge">STEP 2</span><h3>目次を作るスクリプトを置く</h3></div>
+      <div class="step-head"><span class="step-badge">STEP 2</span><h3>3 層のフォルダを掘る</h3></div>
+      <div class="code">
+        <div class="code-label"><span>ターミナル</span></div>
+<pre>mkdir -p "$VAULT/_Skills/_lib"
+mkdir -p "$VAULT/_Skills/wiki"
+mkdir -p "$VAULT/_Skills/wiki-ingest"
+mkdir -p "$VAULT/_Wiki"</pre>
+      </div>
+      <p>
+        Obsidian を開くと、これらが普通のフォルダとして見えるようになります。
+        以降の編集は Obsidian からでも、エディタからでも、どちらでも構いません。
+      </p>
+    </div>
+
+    <!-- step 3 -->
+    <div class="step">
+      <div class="step-head"><span class="step-badge">STEP 3</span><h3>目次を作るスクリプトを置く</h3></div>
       <p>
         指定したフォルダの <code>.md</code> を全部さらって、<strong>「パス ＋ その中の最初の見出し」</strong>の一覧を出すだけの小さなプログラムです。
         ノート側に何も書き足さなくていいのは、この「見出しを拾う」部分のおかげです。
       </p>
       <div class="code">
-        <div class="code-label"><span>~/.claude/skills/_vault/index.sh</span><span class="tag">VAULT は STEP 1 のパスに書き換える</span></div>
+        <div class="code-label"><span>$VAULT/_Skills/_lib/index.sh</span><span class="tag">VAULT= の行だけ書き換える</span></div>
 <pre><span class="c">#!/usr/bin/env bash</span>
 VAULT="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian_VN"
 TARGET="${1:-.}"          <span class="c"># 第1引数でフォルダを絞る（省略時は Vault 全体）</span>
@@ -474,21 +619,20 @@ find "$TARGET" -name '*.md' -not -path '*/.obsidian/*' | sort | while IFS= read 
 done</pre>
       </div>
       <div class="code">
-        <div class="code-label"><span>ターミナル</span><span class="tag">置いたら動作確認</span></div>
-<pre>mkdir -p ~/.claude/skills/_vault
-chmod +x ~/.claude/skills/_vault/index.sh
+        <div class="code-label"><span>ターミナル</span><span class="tag">動作確認</span></div>
+<pre>chmod +x "$VAULT/_Skills/_lib/index.sh"
 
-<span class="c"># VNworks だけの目次が出るか</span>
-bash ~/.claude/skills/_vault/index.sh VNworks
+<span class="c"># VNworks の目次が出るか</span>
+bash "$VAULT/_Skills/_lib/index.sh" VNworks
 
-<span class="c"># 行数を数える。100 行を大きく超えるなら分割を検討</span>
-bash ~/.claude/skills/_vault/index.sh VNworks | wc -l</pre>
+<span class="c"># 行数を数える。100 行を大きく超えるならフォルダを分ける合図</span>
+bash "$VAULT/_Skills/_lib/index.sh" VNworks | wc -l</pre>
       </div>
       <div class="note warn">
         <div class="note-title">ここが唯一のワナ：失敗すると全部が止まる</div>
         <p>
           スキルの中で走らせるコマンドは、<strong>1 つでも「失敗」で終わるとスキル全体が中止</strong>されます。
-          Claude はメモの中身を一切見られません。
+          Claude は手順書の中身を一切見られません。
         </p>
         <p>
           シェルの世界では「終了コード 0 ＝ 成功」「それ以外 ＝ 失敗」。
@@ -496,55 +640,56 @@ bash ~/.claude/skills/_vault/index.sh VNworks | wc -l</pre>
           <code>set -e</code> は付けないこと（<code>grep</code> が空振りしただけで失敗扱いになります）。
         </p>
       </div>
-      <div class="note">
-        <div class="note-title">フォルダ名を <code>_vault</code> にした理由</div>
-        <p>
-          このフォルダには <code>SKILL.md</code> を置きません。スクリプトの置き場所として使うだけです。
-          <code>SKILL.md</code> が無いフォルダはスキルとして読み込まれないので、
-          <code>/skills</code> の一覧を汚さずに共有部品を置けます。
-        </p>
-      </div>
     </div>
 
-    <!-- step 3 -->
+    <!-- step 4 -->
     <div class="step">
-      <div class="step-head"><span class="step-badge">STEP 3</span><h3>案件用のメモを書く</h3></div>
+      <div class="step-head"><span class="step-badge">STEP 4</span><h3>query スキルを書く ── 日常の主役</h3></div>
       <p>
-        1 枚目のスキルです。<code>~/.claude/skills/<strong>vault-works</strong>/SKILL.md</code> という名前と場所が決まっていて、
-        フォルダ名がそのままコマンド名（<code>/vault-works</code>）になります。
+        Wiki を引いて答える係です。<code>$VAULT/_Skills/wiki/SKILL.md</code> を作ります。
+        フォルダ名（<code>wiki</code>）がそのままコマンド名（<code>/wiki</code>）になります。
       </p>
       <div class="code">
-        <div class="code-label"><span>~/.claude/skills/vault-works/SKILL.md</span></div>
+        <div class="code-label"><span>$VAULT/_Skills/wiki/SKILL.md</span></div>
 <pre><span class="k">---</span>
-name: vault-works
-description: 過去の案件ノート（Obsidian の VNworks）から実績と経緯を調べる。
-  取引先・商材・イベント・納品の話が出たとき、「前回どうした」「あの案件の条件は」
-  「◯◯様の件」と聞かれたとき、見積や企画を作る前の下調べに使う。
-allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/../_vault/index.sh:*) Read
+name: wiki
+description: 個人の外部記憶（Obsidian の _Wiki と過去の案件ノート）を引いて答える。
+  過去の決定、取引先や案件の経緯、自分のやり方や手順を聞かれたとき、
+  「前どうしたっけ」「あの件の条件は」「うちのやり方は」と聞かれたときに使う。
+allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/../_lib/index.sh:*) Read Grep Glob
 <span class="k">---</span>
 
-## 案件ノート一覧
+## Wiki 目次
 
-!`bash ${CLAUDE_SKILL_DIR}/../_vault/index.sh VNworks`
+!`bash ${CLAUDE_SKILL_DIR}/../_lib/index.sh _Wiki`
+
+## 案件ノート目次（Wiki 未整備分の素材）
+
+!`bash ${CLAUDE_SKILL_DIR}/../_lib/index.sh VNworks`
 
 ## 手順
 
-1. 上の一覧から、質問に関係しそうなノートを 1〜3 件選ぶ
-2. 「ルート:」の行のパスと組み合わせて絶対パスを作り、Read で開く
-3. 読んだ内容を根拠に答える。参照したノートのパスを最後に書く
-4. 一覧に該当が無ければ「VNworks に該当なし」と言う。推測で埋めない</pre>
+1. まず _Wiki の目次から探す。整形済みなので当たりが早い
+2. 見つからなければ案件ノートの目次を見る
+3. 「ルート:」の行のパスと組み合わせて絶対パスを作り、Read で開く
+4. 本文に [[ページ名]] があり、その先が必要なときは
+   Glob で `**/ページ名.md` を探して開く
+5. 答えるときは、根拠にしたファイルのパスを必ず最後に並べる
+6. どこにも無ければ「Wiki に該当なし」と言う。推測で埋めない
+7. 調べた結果が今後も使えそうなら、最後に
+   「これは _Wiki に残しますか？」と一言添える</pre>
       </div>
 
       <h3>3 行だけ、意味を説明します</h3>
       <ul>
         <li>
           <code>description</code> ── <strong>1 回目の選別に使われる唯一の材料</strong>。
-          「何をする」＋「いつ使う」＋「実際に言いそうな言い回し」の 3 点セットで書く。
-          固有名詞（取引先名や商材名）を入れると、ぐっと当たるようになります。
+          「何をする」＋「いつ使う」＋「実際に言いそうな言い回し」の 3 点セット。
+          取引先名や商材名などの固有名詞を入れると、ぐっと当たるようになります。
         </li>
         <li>
           <code>!`...`</code> ── バッククォートで囲んだ行は、Claude が読む前に実行され、<strong>その出力に置き換わる</strong>。
-          だから毎回できたての目次が入る。目次ファイルを保存しておく必要はありません。
+          だから毎回できたての目次が入ります。目次ファイルを保存しておく必要はありません。
         </li>
         <li>
           <code>allowed-tools</code> ── 上の行を実行する許可。
@@ -553,67 +698,129 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/../_vault/index.sh:*) Read
         </li>
       </ul>
       <div class="note">
-        <div class="note-title">${CLAUDE_SKILL_DIR} って何</div>
+        <div class="note-title">手順 4 が [[リンク]] 問題の答え</div>
         <p>
-          「この SKILL.md が置いてあるフォルダ」に自動で置き換わる変数です。
-          本文の中でも <code>allowed-tools</code> の中でも同じように展開されるので、
-          両方で使えば「同じスクリプトを、許可を聞かれずに実行する」がきれいに成立します。
-          <code>../_vault/</code> と書いているのは、隣のフォルダの共有スクリプトを指すためです。
+          Obsidian の <code>[[ページ名]]</code> は、Claude にとってはただの文字列で、自動では追えません。
+          でも「見つけたら Glob で探して開け」と手順に書いておけば、実質的にリンクをたどれるようになります。
+          禁止するのではなく、たどり方を教えるのが正解です。
         </p>
-      </div>
-    </div>
-
-    <!-- step 4 -->
-    <div class="step">
-      <div class="step-head"><span class="step-badge">STEP 4</span><h3>アーカイブ用のメモを書く</h3></div>
-      <p>
-        2 枚目。中身はほぼ同じで、フォルダと説明文だけが違います。
-        こちらは MOC を入口にする手順を足しているのがポイントです。
-      </p>
-      <div class="code">
-        <div class="code-label"><span>~/.claude/skills/vault-archive/SKILL.md</span></div>
-<pre><span class="k">---</span>
-name: vault-archive
-description: 過去の Claude との会話ログとプロジェクト記録（ClaudeArchive）を掘り返す。
-  「前に相談した件」「あのとき決めた方針」「同じことを前にやった気がする」と
-  言われたとき、過去の検討経緯や結論を確認したいときに使う。
-allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/../_vault/index.sh:*) Read
-<span class="k">---</span>
-
-## アーカイブ一覧
-
-!`bash ${CLAUDE_SKILL_DIR}/../_vault/index.sh ClaudeArchive`
-
-## 手順
-
-1. まず _MOC_ClaudeArchive と _CrossMemory を確認する。
-   手で整理された目次なので、機械的な一覧より当たりが早い
-2. そこから当たりを付けて、実ファイルを Read で開く
-3. 会話ログは長いので、関係する部分だけを引用して答える
-4. 見つからなければ「アーカイブに該当なし」と言う</pre>
       </div>
     </div>
 
     <!-- step 5 -->
     <div class="step">
-      <div class="step-head"><span class="step-badge">STEP 5</span><h3>試す</h3></div>
+      <div class="step-head"><span class="step-badge">STEP 5</span><h3>Claude Code とつなぐ ── ここが連動の正体</h3></div>
       <p>
-        Claude Code はスキルのフォルダを見張っているので、保存した瞬間に反映されます（再起動不要）。
-        ただし <code>~/.claude/skills</code> フォルダ自体を今まさに新規作成した場合だけは、一度アプリを開き直してください。
+        Claude Code がスキルを探すのは <code>~/.claude/skills/</code> だけです。
+        でも実体を Vault に置いたまま使いたい。そこで<strong>ショートカット（シンボリックリンク）</strong>を置きます。
+        公式に「スキルの登録はシンボリックリンクでよく、リンク先の SKILL.md を読む」と決められている、正規のやり方です。
+      </p>
+      <div class="code">
+        <div class="code-label"><span>ターミナル</span><span class="tag">スキル 1 枚につき 1 回だけ</span></div>
+<pre>mkdir -p ~/.claude/skills
+
+ln -s "$VAULT/_Skills/wiki"        ~/.claude/skills/wiki
+ln -s "$VAULT/_Skills/wiki-ingest" ~/.claude/skills/wiki-ingest
+
+<span class="c"># 確認：リンク先が Vault を指していれば成功</span>
+ls -l ~/.claude/skills/</pre>
+      </div>
+      <p>
+        以降、Obsidian で <code>_Skills/wiki/SKILL.md</code> を編集すれば、それがそのまま Claude の挙動になります。
+        <strong>スキルを Obsidian で育てられる</strong>状態ができました。
+      </p>
+      <div class="note">
+        <div class="note-title">_lib と _Wiki にはリンクを張らない</div>
+        <p>
+          リンクを張るのは <code>SKILL.md</code> を持つフォルダだけです。
+          <code>_lib</code> はスクリプト置き場、<code>_Wiki</code> は読まれるデータなので、
+          Claude Code に登録する必要はありません。登録すると <code>/skills</code> の一覧が散らかります。
+        </p>
+      </div>
+    </div>
+
+    <!-- step 6 -->
+    <div class="step">
+      <div class="step-head"><span class="step-badge">STEP 6</span><h3>ingest スキルを書く ── Wiki を育てる</h3></div>
+      <p>
+        <code>_Wiki</code> は今まっさらです。これを埋めるのが ingest。
+        アーカイブや案件ノートから知識を抜き出して、1 ページ 1 トピックに整えて書き出します。
+        <strong>手動で呼ぶ専用</strong>にします（勝手にファイルを作られると困るため）。
+      </p>
+      <div class="code">
+        <div class="code-label"><span>$VAULT/_Skills/wiki-ingest/SKILL.md</span></div>
+<pre><span class="k">---</span>
+name: wiki-ingest
+description: 過去ログや案件ノートから知識を抜き出して _Wiki のページにする。
+disable-model-invocation: true
+argument-hint: [調べたいテーマ or 素材のパス]
+allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/../_lib/index.sh:*) Read Grep Glob Write
+<span class="k">---</span>
+
+テーマ: $ARGUMENTS
+
+## 素材の目次
+
+!`bash ${CLAUDE_SKILL_DIR}/../_lib/index.sh ClaudeArchive`
+
+## 手順
+
+1. テーマに関係する素材を目次から選び、Read で読む
+2. 事実・決定・数字・固有名詞だけを残し、会話の流れは捨てる
+3. 下の書式で 1 ページにまとめ、_Wiki/ に新規ファイルとして書く
+4. 既に同じテーマのページがあれば、新規作成せず追記・更新する
+5. 最後に、作ったページのパスと要約を報告する
+
+## ページの書式
+
+---
+summary: （このページを一言で。「いつ開くべきか」を含める）
+updated: YYYY-MM-DD
+source: （元にした素材のパス。複数可）
+---
+
+# タイトル
+
+## 要点
+- 箇条書き 3〜7 行。ここだけ読めば用が足りる状態にする
+
+## 詳細
+（必要な分だけ）
+
+## 関連
+- [[別のページ名]] — なぜ関連するかを一言</pre>
+      </div>
+      <div class="note">
+        <div class="note-title">なぜ「会話の流れは捨てる」のか</div>
+        <p>
+          過去ログをそのまま置いても Wiki にはなりません。長いだけで、読むたびにコンテキストを食います。
+          LLM Wiki の肝は<strong>一度きちんと蒸留して、以降はそれだけを読む</strong>こと。
+          手間を最初に 1 回払って、あとは何度でも安く引く、という取引です。
+        </p>
+      </div>
+    </div>
+
+    <!-- step 7 -->
+    <div class="step">
+      <div class="step-head"><span class="step-badge">STEP 7</span><h3>試す</h3></div>
+      <p>
+        Claude Code はスキルのフォルダを見張っているので、保存すればたいてい即反映されます。
+        反映されないと感じたら、一度アプリを開き直してください。
+        <code>~/.claude/skills</code> を今まさに新規作成した場合は、必ず開き直しが要ります。
       </p>
       <div class="code">
         <div class="code-label"><span>Claude Code の入力欄</span></div>
-<pre><span class="c">// 一覧に 2 枚とも出ているか</span>
+<pre><span class="c">// 一覧に wiki と wiki-ingest が出ているか</span>
 /skills
 
-<span class="c">// 手動で呼ぶ（目次がちゃんと出るかの確認）</span>
-/vault-works 握手会の商材って過去に何を出した？
+<span class="c">// まず素材から Wiki を 1 ページ作ってみる</span>
+/wiki-ingest 握手会の商材まわりで過去に決めたこと
 
-<span class="c">// 自動で選ばれるか（本番のテスト）</span>
-ブラザー様の案件、前回の条件どうだったっけ</pre>
+<span class="c">// できたページが引けるか（自動起動のテスト）</span>
+握手会の商材って、前回どういう条件だった？</pre>
       </div>
       <p>
-        3 つ目で勝手に <code>vault-works</code> が起動すれば完成です。起動しなければ <code>description</code> の言葉が足りていません。
+        最後の質問で勝手に <code>wiki</code> が起動すれば完成です。起動しなければ <code>description</code> の言葉が足りていません。
         自分が実際に打ちそうな言い回しを、そのまま説明文に足してください。
       </p>
     </div>
@@ -628,14 +835,19 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/../_vault/index.sh:*) Read
         <thead><tr><th>こうなった</th><th>たぶん原因</th><th>直し方</th></tr></thead>
         <tbody>
           <tr>
+            <td><code>/skills</code> に出てこない</td>
+            <td>リンク先に <code>SKILL.md</code> が無い</td>
+            <td><code>ls -l ~/.claude/skills/</code> と <code>ls "$VAULT/_Skills/wiki"</code> の両方を確認</td>
+          </tr>
+          <tr>
             <td>目次が「見つかりません」だけ</td>
-            <td><code>VAULT</code> のパス違い</td>
-            <td>ターミナルで <code>ls "$VAULT"</code> が通るか確かめる。スペースを含むので必ず引用符で囲む</td>
+            <td><code>index.sh</code> の <code>VAULT=</code> が違う</td>
+            <td>スクリプト内のパスを直接書き換える。スペースを含むので必ず引用符で囲む</td>
           </tr>
           <tr>
             <td><code>Shell command permission check failed</code></td>
-            <td><code>allowed-tools</code> の書き方がコマンドと一致していない</td>
-            <td>本文の <code>!</code> 行と同じ形になっているか確認。引数を渡すなら末尾に <code>:*</code></td>
+            <td><code>allowed-tools</code> がコマンドと一致していない</td>
+            <td>本文の <code>!</code> 行と同じ形にする。引数を渡すなら末尾に <code>:*</code></td>
           </tr>
           <tr>
             <td><code>Shell command failed</code></td>
@@ -650,17 +862,17 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/../_vault/index.sh:*) Read
           <tr>
             <td>自動で起動しない</td>
             <td>説明文が抽象的すぎる</td>
-            <td>取引先名・商材名など固有名詞を説明文に入れる。合計 1,536 文字まで、大事な用途を先頭に</td>
+            <td>固有名詞と言い回しを説明文に足す。合計 1,536 文字まで、大事な用途を先頭に</td>
           </tr>
           <tr>
             <td>関係ない話でも起動する</td>
             <td>説明文が広すぎる</td>
-            <td>適用条件を狭める。手動専用にするなら <code>disable-model-invocation: true</code></td>
+            <td>適用条件を狭める。手動専用なら <code>disable-model-invocation: true</code></td>
           </tr>
           <tr>
-            <td>ノートは選ぶが中身を読まない</td>
+            <td>目次は出るが本文を読まない</td>
             <td>手順の書き方があいまい</td>
-            <td>「Read で開いてから答える」と明示的に書く</td>
+            <td>「Read で開いてから答える」と明示する</td>
           </tr>
           <tr>
             <td>iPhone だけで完結させたい</td>
@@ -675,16 +887,14 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/../_vault/index.sh:*) Read
   <!-- ============================================================ -->
   <section id="caveats">
     <div class="num">知っておくこと</div>
-    <h2>Obsidian の書き方は通じない</h2>
-    <p>
-      Claude が読むのはただの Markdown テキストです。Obsidian が便利に解釈してくれる記法は、
-      Claude には<strong>ただの文字列</strong>として届きます。
-    </p>
+    <h2>境界と安全</h2>
+
+    <h3>Obsidian の書き方は自動では通じない</h3>
     <div class="table-scroll">
       <table>
         <thead><tr><th>書き方</th><th>Obsidian では</th><th>Claude では</th></tr></thead>
         <tbody>
-          <tr><td><code>[[ノート名]]</code></td><td>リンクとして開ける</td><td>ただの文字。追いかけられない</td></tr>
+          <tr><td><code>[[ページ名]]</code></td><td>リンクとして開ける</td><td>ただの文字。<strong>手順に書けば</strong> Glob で追える</td></tr>
           <tr><td><code>![[埋め込み]]</code></td><td>中身が展開される</td><td>展開されない</td></tr>
           <tr><td>Dataview クエリ</td><td>表が生成される</td><td>クエリ文がそのまま見える</td></tr>
           <tr><td>絶対パス</td><td>ただの文字</td><td><strong>Read で開ける</strong></td></tr>
@@ -692,22 +902,21 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/../_vault/index.sh:*) Read
       </table>
     </div>
     <p>
-      だから目次には必ず実際のファイルパスを出しています。
-      <code>_MOC_ClaudeArchive</code> の中が <code>[[リンク]]</code> だらけなら、Claude はその先までは自動で追えません。
-      よく使う導線だけでもパスを併記しておくと、目に見えて賢くなります。
+      だから目次には実際のファイルパスを出し、<code>[[ ]]</code> は「見つけたら探しに行け」と手順で補っています。
+      人間向けの表記と機械向けの表記を、両方まかなう形です。
     </p>
 
-    <h3>安全のはなし</h3>
+    <h3>スキルとデータの線引き</h3>
     <div class="note warn">
-      <div class="note-title">Vault 全体を無条件につながない</div>
+      <div class="note-title">Vault の一般ノートを SKILL.md にしない</div>
       <p>
         <code>SKILL.md</code> として読まれるファイルの中の <code>!</code> 行は、あなたの権限でそのまま実行されます。
-        今回の作りでは <code>SKILL.md</code> は自分で書いた 2 枚だけで、Vault のノートはあくまで
-        <strong>Read で読まれるデータ</strong>なので、この危険はありません。
+        今回の作りでは <code>SKILL.md</code> は <code>_Skills/</code> の下の自作 2 枚だけで、
+        他のノートはすべて <strong>Read で読まれるデータ</strong>です。この境界を守るかぎり危険はありません。
       </p>
       <p>
-        逆に言えば、Vault のノートをそのまま <code>SKILL.md</code> として登録する方式（シンボリックリンクなど）に切り替えるときは、
-        中身を読んでからにしてください。
+        別アカウントから移した <code>ClaudeArchive</code> の中身も同じ扱いです。
+        素材として読むだけなら安全。スキルとして登録するのはやめてください。
       </p>
     </div>
     <div class="note">
@@ -720,33 +929,52 @@ allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/../_vault/index.sh:*) Read
   </section>
 
   <!-- ============================================================ -->
-  <section id="next">
-    <div class="num">慣れてきたら</div>
-    <h2>伸ばし方</h2>
-    <ul>
-      <li>
-        <strong>3 枚目を足す</strong> ── 運用に慣れたら <code>vault-personal</code> を作って
-        <code>個人用</code> / <code>対人メモ</code> を担当させる。<code>index.sh</code> は引数を変えるだけで使い回せます。
-      </li>
-      <li>
-        <strong>PDF も載せる</strong> ── <code>index.sh</code> の <code>-name '*.md'</code> を
-        <code>\( -name '*.md' -o -name '*.pdf' \)</code> にすると PDF も目次に載ります。Claude は PDF を直接読めます。
-      </li>
-      <li>
-        <strong>要約を足していく</strong> ── 見出しだけでは中身が伝わらないノートに、
-        Obsidian のプロパティで <code>summary:</code> を 1 行足す。スクリプトはそちらを優先して使います。全部やる必要はありません。
-      </li>
-      <li>
-        <strong>常時コストを削る</strong> ── ほとんど使わない時期が来たら、設定の <code>skillOverrides</code> で
-        <code>"name-only"</code> にすると、説明文がカバンから降りて名前だけになります。
-      </li>
-    </ul>
+  <section id="order">
+    <div class="num">段取り</div>
+    <h2>どの順でやるか</h2>
+    <p>全部を一度に作らないでください。Wiki は「作る」ものではなく「育つ」ものです。</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>時期</th><th>やること</th><th>ねらい</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>今日</strong></td>
+            <td>STEP 1〜5。<code>wiki</code> スキル 1 枚だけを動かす</td>
+            <td>目次が出て、ノートが読まれることを目で確認する</td>
+          </tr>
+          <tr>
+            <td><strong>今週</strong></td>
+            <td><code>wiki-ingest</code> で、よく聞かれるテーマを 5〜10 ページ作る</td>
+            <td>Wiki が「引くと役に立つ」状態の最低ラインに乗る</td>
+          </tr>
+          <tr>
+            <td><strong>ひと月</strong></td>
+            <td>調べもののたびに 1 ページ足す。<code>updated</code> を更新する</td>
+            <td>使うほど強くなる状態に入る</td>
+          </tr>
+          <tr>
+            <td><strong>そのあと</strong></td>
+            <td><code>wiki-lint</code> を足す。<code>個人用</code>・<code>対人メモ</code> を対象に加える</td>
+            <td>重複と矛盾を潰し、守備範囲を広げる</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">
+      <div class="note-title">lint スキルは後回しでいい</div>
+      <p>
+        ページが 30 枚を超えたあたりから、重複や古い記述が出てきます。そこで初めて作れば十分です。
+        中身は「_Wiki の全ページの summary と updated を一覧にして、重複・矛盾・3 か月以上古いページを指摘する」だけ。
+        <code>index.sh</code> をそのまま使い回せます。
+      </p>
+    </div>
   </section>
 
   <footer>
-    <span>出典：Claude Code 公式ドキュメント</span>
-    <a href="https://code.claude.com/docs/en/skills">Extend Claude with skills</a>
-    <a href="https://code.claude.com/docs/en/skills#inject-dynamic-context">Inject dynamic context</a>
+    <span>出典</span>
+    <a href="https://code.claude.com/docs/en/skills">Claude Code — Extend Claude with skills</a>
+    <a href="https://gist.github.com/rohitg00/2067ab416f7bbe447c1977edaaa681e2">LLM Wiki パターン（Karpathy 氏の提唱と拡張）</a>
+    <a href="https://akitaonrails.com/en/2026/05/18/ai-agent-memory-karpathy-llm-wiki-agentmemory/">AI Agent Memory: Karpathy LLM Wiki</a>
   </footer>
 
 </div>
