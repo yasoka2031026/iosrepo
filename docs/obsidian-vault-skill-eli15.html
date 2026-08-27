@@ -1,0 +1,752 @@
+<title>Obsidianを司書にする</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=BIZ+UDPGothic:wght@400;700&family=M+PLUS+1+Code:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --ground:      #f2f5f3;
+    --surface:     #ffffff;
+    --surface-2:   #e8eeeb;
+    --line:        #dbe3df;
+    --line-strong: #bdc9c3;
+    --ink:         #131d19;
+    --ink-2:       #33443c;
+    --muted:       #56645e;
+    --accent:      #1c6350;
+    --accent-2:    #2a8067;
+    --accent-soft: #e0ede8;
+    --on-accent:   #ffffff;
+    --warn:        #96560f;
+    --warn-soft:   #fbf1e2;
+    --code-bg:     #16211d;
+    --code-ink:    #dee7e3;
+    --code-dim:    #849289;
+    --shadow:      0 1px 2px rgba(19, 29, 25, .05), 0 10px 26px -16px rgba(19, 29, 25, .25);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #0e1413;
+      --surface:     #151e1b;
+      --surface-2:   #1c2724;
+      --line:        #26332e;
+      --line-strong: #3a4a44;
+      --ink:         #e3ebe7;
+      --ink-2:       #c0ccc7;
+      --muted:       #8e9c96;
+      --accent:      #6ec2a2;
+      --accent-2:    #8ed4b9;
+      --accent-soft: #15251f;
+      --on-accent:   #0e1413;
+      --warn:        #d9a15c;
+      --warn-soft:   #241a10;
+      --code-bg:     #0a100e;
+      --code-ink:    #dee7e3;
+      --code-dim:    #77857d;
+      --shadow:      0 1px 2px rgba(0, 0, 0, .4), 0 12px 30px -20px rgba(0, 0, 0, .85);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #0e1413;
+    --surface:     #151e1b;
+    --surface-2:   #1c2724;
+    --line:        #26332e;
+    --line-strong: #3a4a44;
+    --ink:         #e3ebe7;
+    --ink-2:       #c0ccc7;
+    --muted:       #8e9c96;
+    --accent:      #6ec2a2;
+    --accent-2:    #8ed4b9;
+    --accent-soft: #15251f;
+    --on-accent:   #0e1413;
+    --warn:        #d9a15c;
+    --warn-soft:   #241a10;
+    --code-bg:     #0a100e;
+    --code-ink:    #dee7e3;
+    --code-dim:    #77857d;
+    --shadow:      0 1px 2px rgba(0, 0, 0, .4), 0 12px 30px -20px rgba(0, 0, 0, .85);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.95;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  code, pre, .mono { font-family: "M PLUS 1 Code", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; }
+
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:hover { color: var(--accent-2); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+  h1, h2, h3, .display {
+    font-family: "Klee One", "Hiragino Mincho ProN", serif;
+    font-weight: 600;
+    text-wrap: balance;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .page { max-width: 740px; margin-inline: auto; padding: 0 24px 96px; }
+
+  /* ---------- header ---------- */
+  header.top { border-bottom: 1px solid var(--line); background: var(--surface); }
+  .top-inner {
+    max-width: 740px; margin-inline: auto; padding: 56px 24px 40px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .eyebrow {
+    font-size: 12px; letter-spacing: .14em; color: var(--accent); font-weight: 700;
+    font-family: "BIZ UDPGothic", sans-serif;
+  }
+  h1 { font-size: clamp(28px, 5vw, 40px); }
+  .lede { color: var(--ink-2); margin: 0; }
+  .top .who {
+    font-size: 13.5px; color: var(--muted); border-left: 2px solid var(--line-strong);
+    padding-left: 14px; line-height: 1.8;
+  }
+
+  /* ---------- sections ---------- */
+  section { margin-top: 60px; scroll-margin-top: 20px; }
+  .num {
+    display: inline-flex; align-items: baseline; gap: 10px;
+    font-family: "M PLUS 1 Code", monospace; font-size: 12.5px; color: var(--accent);
+    letter-spacing: .1em; margin-bottom: 8px;
+  }
+  .num::before { content: ""; width: 18px; height: 1px; background: var(--accent); align-self: center; }
+  h2 { font-size: clamp(21px, 3.4vw, 26px); margin-bottom: 16px; }
+  h3 { font-size: 17px; margin: 30px 0 10px; }
+  p { margin: 0 0 16px; }
+  p:last-child { margin-bottom: 0; }
+
+  .big-point {
+    font-family: "Klee One", serif; font-size: 19px; line-height: 1.8;
+    color: var(--ink); border-left: 3px solid var(--accent);
+    padding: 2px 0 2px 18px; margin: 22px 0;
+  }
+
+  /* ---------- analogy ---------- */
+  .analogy {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+    padding: 22px 24px; box-shadow: var(--shadow); margin: 22px 0;
+  }
+  .analogy h3 { margin-top: 0; }
+  .analogy dl { margin: 14px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 15px; }
+  .analogy dt { color: var(--accent); font-weight: 700; white-space: nowrap; }
+  .analogy dd { margin: 0; color: var(--ink-2); }
+
+  /* ---------- figure ---------- */
+  figure { margin: 28px 0; }
+  .diagram {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+    padding: 24px 20px 18px; overflow-x: auto;
+  }
+  .diagram svg {
+    display: block; width: 100%; max-width: 100%; height: auto; min-width: 460px;
+    color: var(--ink-2);
+    font-family: "BIZ UDPGothic", sans-serif;
+  }
+  figcaption { font-size: 13.5px; color: var(--muted); margin-top: 12px; line-height: 1.8; }
+
+  /* ---------- code ---------- */
+  .code {
+    margin: 18px 0; border-radius: 6px; overflow: hidden;
+    border: 1px solid var(--line); background: var(--code-bg);
+  }
+  .code-label {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 8px 15px; background: rgba(255, 255, 255, .05);
+    border-bottom: 1px solid rgba(255, 255, 255, .08);
+    font-family: "M PLUS 1 Code", monospace; font-size: 11.5px; color: var(--code-dim);
+  }
+  .code-label .tag { color: var(--accent-2); }
+  .code pre { margin: 0; padding: 15px 16px; overflow-x: auto; font-size: 13px; line-height: 1.9; color: var(--code-ink); }
+  .code pre .c { color: var(--code-dim); }
+  .code pre .k { color: #8fd0b4; }
+  .page :not(pre) > code {
+    background: var(--surface-2); border: 1px solid var(--line);
+    padding: 1px 6px; border-radius: 3px; font-size: .85em; color: var(--ink-2);
+  }
+
+  /* ---------- steps ---------- */
+  .step { border-top: 1px solid var(--line); padding-top: 24px; margin-top: 30px; }
+  .step:first-of-type { border-top: none; padding-top: 0; }
+  .step-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+  .step-badge {
+    flex: none; font-family: "M PLUS 1 Code", monospace; font-size: 12px; font-weight: 500;
+    background: var(--accent); color: var(--on-accent);
+    padding: 2px 9px; border-radius: 3px; letter-spacing: .04em;
+  }
+  .step-head h3 { margin: 0; font-size: 18px; }
+
+  /* ---------- notes ---------- */
+  .note { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 14px 18px; border-radius: 0 5px 5px 0; margin: 20px 0; }
+  .note.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .note-title { font-family: "Klee One", serif; font-weight: 600; font-size: 15px; color: var(--accent); margin-bottom: 4px; }
+  .note.warn .note-title { color: var(--warn); }
+  .note p { font-size: 14.5px; color: var(--ink-2); margin: 0; line-height: 1.85; }
+  .note p + p { margin-top: 8px; }
+
+  ul { margin: 14px 0; padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  li::marker { color: var(--line-strong); }
+
+  /* ---------- vault tree ---------- */
+  .tree {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+    padding: 18px 20px; margin: 20px 0; font-family: "M PLUS 1 Code", monospace;
+    font-size: 13px; line-height: 2.1; overflow-x: auto;
+  }
+  .tree .row { display: flex; gap: 12px; align-items: baseline; white-space: nowrap; }
+  .tree .name { color: var(--ink-2); }
+  .tree .name.dim { color: var(--muted); }
+  .tree .verdict { margin-left: auto; font-size: 11.5px; padding: 0 8px; border-radius: 3px; white-space: nowrap; }
+  .v-in { background: var(--accent-soft); color: var(--accent); }
+  .v-out { background: var(--warn-soft); color: var(--warn); }
+  .v-later { background: var(--surface-2); color: var(--muted); }
+
+  /* ---------- table ---------- */
+  .table-scroll { overflow-x: auto; margin: 20px 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 480px; }
+  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; line-height: 1.75; }
+  thead th { font-size: 12px; letter-spacing: .08em; color: var(--muted); background: var(--surface-2); font-weight: 700; white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  footer {
+    margin-top: 64px; border-top: 1px solid var(--line); padding-top: 24px;
+    font-size: 13.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px 24px;
+  }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    .top-inner { padding: 40px 20px 32px; }
+    .page { padding: 0 20px 72px; }
+    .tree .verdict { margin-left: 12px; }
+  }
+</style>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="eyebrow">Obsidian_VN × Claude Code</div>
+    <h1>Obsidian を司書にする</h1>
+    <p class="lede">
+      378 ファイルの Vault を、Claude が「必要なときだけ、必要な分だけ」自分で選んで読むようにする。
+      その作り方を、前提知識ゼロから順番に。
+    </p>
+    <div class="who">
+      作るのはスクリプト 1 本とメモ 2 枚だけ。所要 30 分ほど。<br>
+      ノートを 1 枚も書き換えずに済む方式で組みます。
+    </div>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- ============================================================ -->
+  <section id="what">
+    <div class="num">まず結論</div>
+    <h2>何を作るのか</h2>
+    <p>
+      Claude Code には「スキル」というしくみがあります。
+      <strong>スキル＝ Claude に渡しておくメモ書き</strong>だと思ってください。
+      「こういうときは、こうやって」と書いた Markdown ファイルを決まった場所に置くと、Claude がそれを読んで動く。
+    </p>
+    <p>
+      ここで作るのは、そのメモを <strong>2 枚だけ</strong> 置く方法です。
+      メモの中身は「あなたのノートの一覧はこれ。この中から関係しそうなものを選んで読め」という指示。
+      <strong>Vault の中身は 1 文字も書き換えません。</strong>
+    </p>
+    <p class="big-point">
+      ノートを 378 個スキルにするのではなく、<br>
+      「378 個の目次を見せる係」を作る。
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="why">
+    <div class="num">考え方</div>
+    <h2>なぜ「全部スキルにする」ではダメなのか</h2>
+    <p>
+      Claude はセッションを開いた瞬間に、<strong>すべてのスキルの説明文（description）を暗記した状態</strong>で会話を始めます。
+      本文は読みません。読むのは「使う」と決めたときだけ。
+    </p>
+    <p>
+      つまり説明文は「常に持ち歩く荷物」です。ノートを 378 個スキルにすると、378 行の説明文を毎回カバンに入れて歩くことになる。
+      重いうえに、似た説明が並んで「どれだっけ」となり、選び間違いも増えます。
+    </p>
+
+    <div class="analogy">
+      <h3>図書館でたとえると</h3>
+      <p>Claude は司書、あなたのノートは本、Vault は書庫です。</p>
+      <dl>
+        <dt>ダメな方法</dt>
+        <dd>本 378 冊を全部カウンターに積んでおく。邪魔だし、探すのに時間がかかる。</dd>
+        <dt>やる方法</dt>
+        <dd>カウンターには <strong>目次カード 1 枚</strong>だけ。司書はそれを見て、書庫から必要な 2〜3 冊だけ取りに行く。</dd>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="how">
+    <div class="num">しくみ</div>
+    <h2>選別は 2 回に分かれている</h2>
+    <p>
+      ここが一番大事なところです。Claude は 2 段階でふるいにかけます。
+      <strong>1 回目は説明文だけを見て</strong>、そもそもノートを引くべき話かを判断する。
+      <strong>2 回目は目次を見て</strong>、どのノートを開くかを決める。
+    </p>
+
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 620 330" role="img"
+             aria-label="質問を受けた Claude が、まず説明文だけで vault スキルを使うか判断し、次に index.sh が出す目次から2〜3件を選び、選んだノートの本文だけを読み込む2段階の流れ">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+            </marker>
+            <marker id="ar-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"></path>
+            </marker>
+          </defs>
+
+          <rect x="24" y="16" width="300" height="66" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+          <text x="42" y="42" font-size="14" fill="currentColor">① 使うかどうかを決める</text>
+          <text x="42" y="64" font-size="11.5" fill="currentColor" opacity=".7">見えているのは各スキルの説明文だけ</text>
+
+          <line x1="174" y1="82" x2="174" y2="122" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"></line>
+          <text x="186" y="106" font-size="11" fill="currentColor" opacity=".7">使うと決めたら</text>
+
+          <rect x="24" y="122" width="300" height="66" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+          <text x="42" y="148" font-size="14" fill="currentColor">② 目次を受け取る</text>
+          <text x="42" y="170" font-size="11.5" fill="currentColor" opacity=".7">index.sh が一覧を作って差し込む</text>
+
+          <line x1="174" y1="188" x2="174" y2="228" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"></line>
+          <text x="186" y="212" font-size="11" fill="currentColor" opacity=".7">関係しそうな 2〜3 件を選ぶ</text>
+
+          <rect x="24" y="228" width="300" height="66" rx="5" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+          <text x="42" y="254" font-size="14" fill="currentColor">③ 本文を読む</text>
+          <text x="42" y="276" font-size="11.5" fill="currentColor" opacity=".7">選んだノートだけを開く</text>
+
+          <rect x="424" y="122" width="172" height="172" rx="5" fill="none" stroke="var(--accent)" stroke-width="1.4"></rect>
+          <text x="510" y="150" font-size="13" fill="var(--accent)" text-anchor="middle">Obsidian_VN</text>
+          <text x="510" y="170" font-size="11" fill="currentColor" opacity=".65" text-anchor="middle">378 ファイル</text>
+          <line x1="446" y1="188" x2="574" y2="188" stroke="currentColor" stroke-width="1" opacity=".35"></line>
+          <line x1="446" y1="212" x2="574" y2="212" stroke="currentColor" stroke-width="1" opacity=".35"></line>
+          <line x1="446" y1="236" x2="574" y2="236" stroke="currentColor" stroke-width="1" opacity=".35"></line>
+          <line x1="446" y1="260" x2="530" y2="260" stroke="currentColor" stroke-width="1" opacity=".35"></line>
+
+          <line x1="424" y1="155" x2="332" y2="155" stroke="var(--accent)" stroke-width="1.4" marker-end="url(#ar-a)"></line>
+          <text x="378" y="146" font-size="10.5" fill="var(--accent)" text-anchor="middle">パス＋見出し</text>
+
+          <path d="M 424 261 L 332 261" fill="none" stroke="var(--accent)" stroke-width="1.4"
+                stroke-dasharray="5 4" marker-end="url(#ar-a)"></path>
+          <text x="378" y="252" font-size="10.5" fill="var(--accent)" text-anchor="middle">本文</text>
+        </svg>
+      </div>
+      <figcaption>
+        Vault からコンテキストに入るのは、②では 1 行の見出しだけ、③では選ばれた数枚の本文だけ。
+        残り 375 枚は最後までディスク上に置かれたまま動かない。
+      </figcaption>
+    </figure>
+
+    <p>
+      1 回目の判断材料は説明文だけなので、<strong>説明文の書き方が精度を決めます</strong>。
+      逆に言えば、チューニングする場所は 1 か所しかない。あとで効かないと感じたら、まずここを疑ってください。
+    </p>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="plan">
+    <div class="num">設計</div>
+    <h2>あなたの Vault をどう割るか</h2>
+    <p>
+      378 ファイルを 1 つの目次にすると、それだけで数千トークンになります。動きますが、もったいない。
+      幸い <code>Obsidian_VN</code> はもう用途ごとにフォルダが分かれているので、<strong>その線でスキルを分けます</strong>。
+      1 回目の選別がフォルダ単位になるぶん、目次も軽く、選別も当たりやすくなります。
+    </p>
+
+    <div class="tree">
+      <div class="row"><span class="name">Obsidian_VN/</span></div>
+      <div class="row"><span class="name">├─ ClaudeArchive/</span><span class="verdict v-in">vault-archive</span></div>
+      <div class="row"><span class="name dim">│　├─ Chats/, Projects/</span></div>
+      <div class="row"><span class="name dim">│　└─ _CrossMemory, _MOC_ClaudeArchive</span><span class="verdict v-in">入口として重視</span></div>
+      <div class="row"><span class="name">├─ VNworks/</span><span class="verdict v-in">vault-works</span></div>
+      <div class="row"><span class="name dim">│　└─ 68th全国握手会…, ブラザー様_大丸様…</span></div>
+      <div class="row"><span class="name">├─ 個人用/</span><span class="verdict v-out">最初は外す</span></div>
+      <div class="row"><span class="name">├─ 対人メモ/</span><span class="verdict v-out">最初は外す</span></div>
+      <div class="row"><span class="name dim">└─ ルート直下の PDF / PNG</span><span class="verdict v-later">後で足す</span></div>
+    </div>
+
+    <p>
+      作るスキルは <strong><code>vault-works</code>（案件）</strong>と <strong><code>vault-archive</code>（過去の Claude 会話）</strong>の 2 枚。
+      性質がまるで違うので、説明文も自然に書き分けられます。
+    </p>
+    <div class="note">
+      <div class="note-title">個人用 / 対人メモ を最初に外す理由</div>
+      <p>
+        技術的な問題ではなく、切り分けの問題です。仕事の質問をしたときに人物メモが引っ張られてくると、
+        邪魔なうえに意図しない情報が会話に混ざります。まず仕事側で運用感をつかんで、
+        必要なら <code>vault-personal</code> を 3 枚目として足すのが安全です。
+      </p>
+    </div>
+    <div class="note">
+      <div class="note-title">_MOC / _CrossMemory は消さずに載せる</div>
+      <p>
+        アンダースコアで始まる目次ノート（MOC ＝ Map of Content）は、あなたが手で整理した最良の入口です。
+        自動生成の目次より質が高いので、除外せず、むしろ「まずここを見ろ」と手順に書きます。
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="build">
+    <div class="num">実装</div>
+    <h2>手を動かす</h2>
+
+    <!-- step 1 -->
+    <div class="step">
+      <div class="step-head"><span class="step-badge">STEP 1</span><h3>パソコン側の Vault の場所を突き止める</h3></div>
+      <p>
+        iPhone の Obsidian は iCloud 経由で同期していることがほとんどです。
+        その場合 Mac 側の実体は、ものすごく長いパスの奥にあります。まず居場所を確認します。
+      </p>
+      <div class="code">
+        <div class="code-label"><span>ターミナル</span><span class="tag">Mac</span></div>
+<pre><span class="c"># iCloud 同期の Obsidian はここ</span>
+ls ~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/
+
+<span class="c"># 見つからなければ、名前で探す（少し時間がかかる）</span>
+find ~ -maxdepth 6 -type d -name "Obsidian_VN" 2>/dev/null</pre>
+      </div>
+      <p>
+        出てきたパスを控えておいてください。以降 <code>$VAULT</code> と書いてある部分に入ります。
+      </p>
+      <div class="note warn">
+        <div class="note-title">iCloud の「まだ降りてきてない」問題</div>
+        <p>
+          iCloud はディスク節約のため、中身を実際にはダウンロードせず「見出しだけ」の状態でファイルを置くことがあります。
+          この状態のファイルは読もうとすると失敗します。
+        </p>
+        <p>
+          Finder で Vault フォルダを右クリック →「今すぐダウンロード」で全部降ろしておくのが確実です。
+          ふだんから Mac で Obsidian を開いているなら、たいてい降りています。
+        </p>
+      </div>
+    </div>
+
+    <!-- step 2 -->
+    <div class="step">
+      <div class="step-head"><span class="step-badge">STEP 2</span><h3>目次を作るスクリプトを置く</h3></div>
+      <p>
+        指定したフォルダの <code>.md</code> を全部さらって、<strong>「パス ＋ その中の最初の見出し」</strong>の一覧を出すだけの小さなプログラムです。
+        ノート側に何も書き足さなくていいのは、この「見出しを拾う」部分のおかげです。
+      </p>
+      <div class="code">
+        <div class="code-label"><span>~/.claude/skills/_vault/index.sh</span><span class="tag">VAULT は STEP 1 のパスに書き換える</span></div>
+<pre><span class="c">#!/usr/bin/env bash</span>
+VAULT="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian_VN"
+TARGET="${1:-.}"          <span class="c"># 第1引数でフォルダを絞る（省略時は Vault 全体）</span>
+
+<span class="c"># 見つからなくても「失敗」で終わらせない（理由は下の注意書き）</span>
+[ -d "$VAULT/$TARGET" ] || { echo "(見つかりません: $VAULT/$TARGET)"; exit 0; }
+cd "$VAULT" || exit 0
+
+echo "ルート: $VAULT"
+echo
+
+find "$TARGET" -name '*.md' -not -path '*/.obsidian/*' | sort | while IFS= read -r f; do
+  <span class="c"># ① summary: があれば最優先で使う</span>
+  s=$(grep -m1 '^summary:' "$f" | sed 's/^summary:[[:space:]]*//')
+  <span class="c"># ② 無ければ最初の見出し（# で始まる行）を使う</span>
+  [ -n "$s" ] || s=$(grep -m1 '^#\{1,3\} ' "$f" | sed 's/^#\{1,3\}[[:space:]]*//')
+  <span class="c"># ③ それも無ければファイル名だけで勝負</span>
+  [ -n "$s" ] || s='-'
+  echo "- ${f#./} : $s"
+done</pre>
+      </div>
+      <div class="code">
+        <div class="code-label"><span>ターミナル</span><span class="tag">置いたら動作確認</span></div>
+<pre>mkdir -p ~/.claude/skills/_vault
+chmod +x ~/.claude/skills/_vault/index.sh
+
+<span class="c"># VNworks だけの目次が出るか</span>
+bash ~/.claude/skills/_vault/index.sh VNworks
+
+<span class="c"># 行数を数える。100 行を大きく超えるなら分割を検討</span>
+bash ~/.claude/skills/_vault/index.sh VNworks | wc -l</pre>
+      </div>
+      <div class="note warn">
+        <div class="note-title">ここが唯一のワナ：失敗すると全部が止まる</div>
+        <p>
+          スキルの中で走らせるコマンドは、<strong>1 つでも「失敗」で終わるとスキル全体が中止</strong>されます。
+          Claude はメモの中身を一切見られません。
+        </p>
+        <p>
+          シェルの世界では「終了コード 0 ＝ 成功」「それ以外 ＝ 失敗」。
+          だから上のスクリプトは、フォルダが無いときも <code>exit 0</code> で終わります。
+          <code>set -e</code> は付けないこと（<code>grep</code> が空振りしただけで失敗扱いになります）。
+        </p>
+      </div>
+      <div class="note">
+        <div class="note-title">フォルダ名を <code>_vault</code> にした理由</div>
+        <p>
+          このフォルダには <code>SKILL.md</code> を置きません。スクリプトの置き場所として使うだけです。
+          <code>SKILL.md</code> が無いフォルダはスキルとして読み込まれないので、
+          <code>/skills</code> の一覧を汚さずに共有部品を置けます。
+        </p>
+      </div>
+    </div>
+
+    <!-- step 3 -->
+    <div class="step">
+      <div class="step-head"><span class="step-badge">STEP 3</span><h3>案件用のメモを書く</h3></div>
+      <p>
+        1 枚目のスキルです。<code>~/.claude/skills/<strong>vault-works</strong>/SKILL.md</code> という名前と場所が決まっていて、
+        フォルダ名がそのままコマンド名（<code>/vault-works</code>）になります。
+      </p>
+      <div class="code">
+        <div class="code-label"><span>~/.claude/skills/vault-works/SKILL.md</span></div>
+<pre><span class="k">---</span>
+name: vault-works
+description: 過去の案件ノート（Obsidian の VNworks）から実績と経緯を調べる。
+  取引先・商材・イベント・納品の話が出たとき、「前回どうした」「あの案件の条件は」
+  「◯◯様の件」と聞かれたとき、見積や企画を作る前の下調べに使う。
+allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/../_vault/index.sh:*) Read
+<span class="k">---</span>
+
+## 案件ノート一覧
+
+!`bash ${CLAUDE_SKILL_DIR}/../_vault/index.sh VNworks`
+
+## 手順
+
+1. 上の一覧から、質問に関係しそうなノートを 1〜3 件選ぶ
+2. 「ルート:」の行のパスと組み合わせて絶対パスを作り、Read で開く
+3. 読んだ内容を根拠に答える。参照したノートのパスを最後に書く
+4. 一覧に該当が無ければ「VNworks に該当なし」と言う。推測で埋めない</pre>
+      </div>
+
+      <h3>3 行だけ、意味を説明します</h3>
+      <ul>
+        <li>
+          <code>description</code> ── <strong>1 回目の選別に使われる唯一の材料</strong>。
+          「何をする」＋「いつ使う」＋「実際に言いそうな言い回し」の 3 点セットで書く。
+          固有名詞（取引先名や商材名）を入れると、ぐっと当たるようになります。
+        </li>
+        <li>
+          <code>!`...`</code> ── バッククォートで囲んだ行は、Claude が読む前に実行され、<strong>その出力に置き換わる</strong>。
+          だから毎回できたての目次が入る。目次ファイルを保存しておく必要はありません。
+        </li>
+        <li>
+          <code>allowed-tools</code> ── 上の行を実行する許可。
+          <strong>これが無いと止まります</strong>。差し込みコマンドは「許可しますか？」と聞いてくれず、
+          許可されていなければ黙って中止されるからです。末尾の <code>:*</code> は「引数は何でもよい」の意味。
+        </li>
+      </ul>
+      <div class="note">
+        <div class="note-title">${CLAUDE_SKILL_DIR} って何</div>
+        <p>
+          「この SKILL.md が置いてあるフォルダ」に自動で置き換わる変数です。
+          本文の中でも <code>allowed-tools</code> の中でも同じように展開されるので、
+          両方で使えば「同じスクリプトを、許可を聞かれずに実行する」がきれいに成立します。
+          <code>../_vault/</code> と書いているのは、隣のフォルダの共有スクリプトを指すためです。
+        </p>
+      </div>
+    </div>
+
+    <!-- step 4 -->
+    <div class="step">
+      <div class="step-head"><span class="step-badge">STEP 4</span><h3>アーカイブ用のメモを書く</h3></div>
+      <p>
+        2 枚目。中身はほぼ同じで、フォルダと説明文だけが違います。
+        こちらは MOC を入口にする手順を足しているのがポイントです。
+      </p>
+      <div class="code">
+        <div class="code-label"><span>~/.claude/skills/vault-archive/SKILL.md</span></div>
+<pre><span class="k">---</span>
+name: vault-archive
+description: 過去の Claude との会話ログとプロジェクト記録（ClaudeArchive）を掘り返す。
+  「前に相談した件」「あのとき決めた方針」「同じことを前にやった気がする」と
+  言われたとき、過去の検討経緯や結論を確認したいときに使う。
+allowed-tools: Bash(bash ${CLAUDE_SKILL_DIR}/../_vault/index.sh:*) Read
+<span class="k">---</span>
+
+## アーカイブ一覧
+
+!`bash ${CLAUDE_SKILL_DIR}/../_vault/index.sh ClaudeArchive`
+
+## 手順
+
+1. まず _MOC_ClaudeArchive と _CrossMemory を確認する。
+   手で整理された目次なので、機械的な一覧より当たりが早い
+2. そこから当たりを付けて、実ファイルを Read で開く
+3. 会話ログは長いので、関係する部分だけを引用して答える
+4. 見つからなければ「アーカイブに該当なし」と言う</pre>
+      </div>
+    </div>
+
+    <!-- step 5 -->
+    <div class="step">
+      <div class="step-head"><span class="step-badge">STEP 5</span><h3>試す</h3></div>
+      <p>
+        Claude Code はスキルのフォルダを見張っているので、保存した瞬間に反映されます（再起動不要）。
+        ただし <code>~/.claude/skills</code> フォルダ自体を今まさに新規作成した場合だけは、一度アプリを開き直してください。
+      </p>
+      <div class="code">
+        <div class="code-label"><span>Claude Code の入力欄</span></div>
+<pre><span class="c">// 一覧に 2 枚とも出ているか</span>
+/skills
+
+<span class="c">// 手動で呼ぶ（目次がちゃんと出るかの確認）</span>
+/vault-works 握手会の商材って過去に何を出した？
+
+<span class="c">// 自動で選ばれるか（本番のテスト）</span>
+ブラザー様の案件、前回の条件どうだったっけ</pre>
+      </div>
+      <p>
+        3 つ目で勝手に <code>vault-works</code> が起動すれば完成です。起動しなければ <code>description</code> の言葉が足りていません。
+        自分が実際に打ちそうな言い回しを、そのまま説明文に足してください。
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="trouble">
+    <div class="num">つまずいたら</div>
+    <h2>症状から引く</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>こうなった</th><th>たぶん原因</th><th>直し方</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>目次が「見つかりません」だけ</td>
+            <td><code>VAULT</code> のパス違い</td>
+            <td>ターミナルで <code>ls "$VAULT"</code> が通るか確かめる。スペースを含むので必ず引用符で囲む</td>
+          </tr>
+          <tr>
+            <td><code>Shell command permission check failed</code></td>
+            <td><code>allowed-tools</code> の書き方がコマンドと一致していない</td>
+            <td>本文の <code>!</code> 行と同じ形になっているか確認。引数を渡すなら末尾に <code>:*</code></td>
+          </tr>
+          <tr>
+            <td><code>Shell command failed</code></td>
+            <td>スクリプトが 0 以外で終了した</td>
+            <td>末尾に <code>|| true</code> を足す。<code>set -e</code> を消す</td>
+          </tr>
+          <tr>
+            <td>ファイルが読めないと言われる</td>
+            <td>iCloud にまだ実体が降りていない</td>
+            <td>Finder で Vault を「今すぐダウンロード」</td>
+          </tr>
+          <tr>
+            <td>自動で起動しない</td>
+            <td>説明文が抽象的すぎる</td>
+            <td>取引先名・商材名など固有名詞を説明文に入れる。合計 1,536 文字まで、大事な用途を先頭に</td>
+          </tr>
+          <tr>
+            <td>関係ない話でも起動する</td>
+            <td>説明文が広すぎる</td>
+            <td>適用条件を狭める。手動専用にするなら <code>disable-model-invocation: true</code></td>
+          </tr>
+          <tr>
+            <td>ノートは選ぶが中身を読まない</td>
+            <td>手順の書き方があいまい</td>
+            <td>「Read で開いてから答える」と明示的に書く</td>
+          </tr>
+          <tr>
+            <td>iPhone だけで完結させたい</td>
+            <td>この方式はパソコン用</td>
+            <td>Vault はパソコン側のファイルを読む。iPhone 単体では動かない</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="caveats">
+    <div class="num">知っておくこと</div>
+    <h2>Obsidian の書き方は通じない</h2>
+    <p>
+      Claude が読むのはただの Markdown テキストです。Obsidian が便利に解釈してくれる記法は、
+      Claude には<strong>ただの文字列</strong>として届きます。
+    </p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>書き方</th><th>Obsidian では</th><th>Claude では</th></tr></thead>
+        <tbody>
+          <tr><td><code>[[ノート名]]</code></td><td>リンクとして開ける</td><td>ただの文字。追いかけられない</td></tr>
+          <tr><td><code>![[埋め込み]]</code></td><td>中身が展開される</td><td>展開されない</td></tr>
+          <tr><td>Dataview クエリ</td><td>表が生成される</td><td>クエリ文がそのまま見える</td></tr>
+          <tr><td>絶対パス</td><td>ただの文字</td><td><strong>Read で開ける</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      だから目次には必ず実際のファイルパスを出しています。
+      <code>_MOC_ClaudeArchive</code> の中が <code>[[リンク]]</code> だらけなら、Claude はその先までは自動で追えません。
+      よく使う導線だけでもパスを併記しておくと、目に見えて賢くなります。
+    </p>
+
+    <h3>安全のはなし</h3>
+    <div class="note warn">
+      <div class="note-title">Vault 全体を無条件につながない</div>
+      <p>
+        <code>SKILL.md</code> として読まれるファイルの中の <code>!</code> 行は、あなたの権限でそのまま実行されます。
+        今回の作りでは <code>SKILL.md</code> は自分で書いた 2 枚だけで、Vault のノートはあくまで
+        <strong>Read で読まれるデータ</strong>なので、この危険はありません。
+      </p>
+      <p>
+        逆に言えば、Vault のノートをそのまま <code>SKILL.md</code> として登録する方式（シンボリックリンクなど）に切り替えるときは、
+        中身を読んでからにしてください。
+      </p>
+    </div>
+    <div class="note">
+      <div class="note-title">クラウド・Cowork では動かない</div>
+      <p>
+        Vault はこのパソコンの中のファイルです。デスクトップアプリのローカルセッション専用と割り切ってください。
+        Cowork タブやクラウドセッション、ルーティンからは見えません。
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section id="next">
+    <div class="num">慣れてきたら</div>
+    <h2>伸ばし方</h2>
+    <ul>
+      <li>
+        <strong>3 枚目を足す</strong> ── 運用に慣れたら <code>vault-personal</code> を作って
+        <code>個人用</code> / <code>対人メモ</code> を担当させる。<code>index.sh</code> は引数を変えるだけで使い回せます。
+      </li>
+      <li>
+        <strong>PDF も載せる</strong> ── <code>index.sh</code> の <code>-name '*.md'</code> を
+        <code>\( -name '*.md' -o -name '*.pdf' \)</code> にすると PDF も目次に載ります。Claude は PDF を直接読めます。
+      </li>
+      <li>
+        <strong>要約を足していく</strong> ── 見出しだけでは中身が伝わらないノートに、
+        Obsidian のプロパティで <code>summary:</code> を 1 行足す。スクリプトはそちらを優先して使います。全部やる必要はありません。
+      </li>
+      <li>
+        <strong>常時コストを削る</strong> ── ほとんど使わない時期が来たら、設定の <code>skillOverrides</code> で
+        <code>"name-only"</code> にすると、説明文がカバンから降りて名前だけになります。
+      </li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>出典：Claude Code 公式ドキュメント</span>
+    <a href="https://code.claude.com/docs/en/skills">Extend Claude with skills</a>
+    <a href="https://code.claude.com/docs/en/skills#inject-dynamic-context">Inject dynamic context</a>
+  </footer>
+
+</div>
