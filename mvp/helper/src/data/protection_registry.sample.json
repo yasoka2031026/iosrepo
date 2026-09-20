@@ -1,0 +1,32 @@
+[
+  {
+    "id": "eac-known-1",
+    "category": "anticheat",
+    "process_names": ["EasyAntiCheat.exe", "EasyAntiCheat_EOS.exe"],
+    "service_names": ["EasyAntiCheat"],
+    "known_driver_modules": ["EasyAntiCheat.sys"],
+    "vendor": "EasyAntiCheat",
+    "detection_confidence": "high",
+    "updated_at": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "battleye-known-1",
+    "category": "anticheat",
+    "process_names": ["BEService.exe", "BEDaisy.exe"],
+    "service_names": ["BEService"],
+    "known_driver_modules": ["BEDaisy.sys"],
+    "vendor": "BattlEye",
+    "detection_confidence": "high",
+    "updated_at": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "denuvo-heuristic-1",
+    "category": "anti_tamper",
+    "process_names": [],
+    "service_names": [],
+    "known_driver_modules": [],
+    "vendor": "Denuvo",
+    "detection_confidence": "heuristic_low",
+    "updated_at": "2026-01-01T00:00:00Z"
+  }
+]

@@ -1,0 +1,47 @@
+[
+  {
+    "profile_id": "b6f1e6b0-0000-4000-8000-000000000001",
+    "steam_app_id": "0000001",
+    "executable_names": ["SampleUnityMono.exe"],
+    "engine": "unity_mono",
+    "hook_targets": [
+      { "api": "Text.set_text", "signature_pattern": "00-00", "arg_index": 1, "encoding": "utf8" }
+    ],
+    "overlay_hint": { "known_fullscreen_exclusive": false, "recommend_borderless": true },
+    "anticheat_flags": ["none"],
+    "anti_tamper_flags": ["none"],
+    "moderation_status": "verified",
+    "signature": "unsigned-sample-data-not-for-production",
+    "last_verified_game_version": "1.0.0"
+  },
+  {
+    "profile_id": "b6f1e6b0-0000-4000-8000-000000000002",
+    "steam_app_id": "0000002",
+    "executable_names": ["SampleUnityIl2cpp.exe"],
+    "engine": "unity_il2cpp",
+    "hook_targets": [
+      { "api": "TMP_Text.set_text", "signature_pattern": "00-00", "arg_index": 1, "encoding": "utf16" }
+    ],
+    "overlay_hint": { "known_fullscreen_exclusive": true, "recommend_borderless": true },
+    "anticheat_flags": ["eac"],
+    "anti_tamper_flags": ["none"],
+    "moderation_status": "verified",
+    "signature": "unsigned-sample-data-not-for-production",
+    "last_verified_game_version": "2.3.1"
+  },
+  {
+    "profile_id": "b6f1e6b0-0000-4000-8000-000000000003",
+    "steam_app_id": "0000003",
+    "executable_names": ["SampleUnreal.exe"],
+    "engine": "unreal",
+    "hook_targets": [
+      { "api": "FText localization resolver", "signature_pattern": "00-00", "arg_index": 0, "encoding": "utf16" }
+    ],
+    "overlay_hint": { "known_fullscreen_exclusive": false, "recommend_borderless": true },
+    "anticheat_flags": ["none"],
+    "anti_tamper_flags": ["denuvo"],
+    "moderation_status": "community_unverified",
+    "signature": "unsigned-sample-data-not-for-production",
+    "last_verified_game_version": "0.9.0-beta"
+  }
+]

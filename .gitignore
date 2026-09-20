@@ -60,3 +60,11 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# Node (mvp/)
+node_modules/
+dist/
+*.tsbuildinfo
+/mvp/**/test-results/
+/mvp/**/playwright-report/
+/mvp/**/*.sqlite

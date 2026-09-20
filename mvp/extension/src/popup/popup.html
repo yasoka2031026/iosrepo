@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>LiveYaku</title>
+    <style>
+      body { font-family: system-ui, sans-serif; width: 260px; margin: 0; padding: 16px; color: #111; }
+      h1 { font-size: 15px; margin: 0 0 12px; }
+      .status { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; }
+      .dot { width: 10px; height: 10px; border-radius: 50%; background: #999; }
+      .dot.connected { background: #2e7d32; }
+      .dot.disconnected { background: #c62828; }
+      label.toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 12px; }
+      a { font-size: 12px; color: #1565c0; }
+      .note { font-size: 11px; color: #666; margin-top: 8px; line-height: 1.4; }
+    </style>
+  </head>
+  <body>
+    <h1>LiveYaku (MVP)</h1>
+    <div class="status">
+      <span id="status-dot" class="dot"></span>
+      <span id="status-text">確認中...</span>
+    </div>
+    <label class="toggle">
+      <input type="checkbox" id="enabled-toggle" />
+      翻訳オーバーレイを有効化
+    </label>
+    <a href="../options/options.html" target="_blank" id="open-options">設定・用語集を開く</a>
+    <p class="note" id="mvp-note"></p>
+    <script type="module" src="./popup.js"></script>
+  </body>
+</html>
