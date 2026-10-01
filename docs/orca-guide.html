@@ -85,6 +85,7 @@ figcaption{font-size:13px;color:var(--sub);margin-top:10px}
 .panel h4{color:#fff}
 .panel strong{color:#fff}
 .panel .em{color:var(--red)}
+.panel ul.dots li::before{background:var(--red)}
 
 /* flow (HTML diagram) */
 .flow{display:grid;grid-template-columns:repeat(6,1fr);gap:0;margin:32px 0 8px}
@@ -192,13 +193,13 @@ footer{margin-top:96px;background:var(--ink);color:var(--onink);padding:40px 0;f
   <!-- 結論 -->
   <section class="conclusion">
     <div class="k">結論</div>
-    <h2>Mac に入れて、iOS 開発の「並列試作」と「シミュレータ検証」に使う。承認は iPhone から。</h2>
+    <h2>使用中の MacBook に Orca を常駐させ、承認は iPhone や別の PC から行う。</h2>
     <p>Orca は AI モデルではありません。すでに契約しているエージェントの CLI を起動し、git worktree（同じリポジトリから枝分かれした別フォルダ）ごとに 1 つずつ割り当てて並べる「エージェント開発環境（ADE）」です。料金は Orca 側にはかからず、各エージェントのサブスクリプションをそのまま使います。</p>
     <p>このリポジトリ（<code>iosrepo</code>）の構成と、Claude Code on the web を主に使っている状況から考えると、効果が大きいのは次の 3 点です。</p>
     <div class="three">
       <div><div class="n">1</div><h4>同じ課題を3社のエージェントに解かせる</h4><p>SwiftUI 画面の実装を Claude Code・Codex・Cursor CLI に同時に投げ、差分を見比べて一番よいものだけをマージします。</p></div>
       <div><div class="n">2</div><h4>エージェント自身にシミュレータを操作させる</h4><p><code>orca emulator</code> で iOS Simulator をタップ・入力・画面構造の取得まで自動化。クラウド環境ではできない検証です。</p></div>
-      <div><div class="n">3</div><h4>席を外しても止めない</h4><p>モバイルアプリで「入力待ち」の通知を受け、iPhone から返答や承認を送れます。</p></div>
+      <div><div class="n">3</div><h4>席を外しても止めない</h4><p>エージェントが入力待ちになると iPhone に通知が届き、その場で承認や返答を送れます。必要な設定は <a href="#resident">09 章</a>にまとめました。</p></div>
     </div>
   </section>
 
@@ -213,10 +214,12 @@ footer{margin-top:96px;background:var(--ink);color:var(--onink);padding:40px 0;f
       <li><a href="#install">導入手順</a></li>
       <li><a href="#safety">権限とセキュリティ</a></li>
       <li><a href="#run">実行場所の 4 モード</a></li>
+      <li><a href="#resident">目標構成：MacBook 常駐と遠隔承認</a></li>
       <li><a href="#orch">オーケストレーション</a></li>
       <li><a href="#cli">CLI 早見表</a></li>
       <li><a href="#env">あなたの環境に当てはめる</a></li>
       <li><a href="#usecase">ユースケース 6 選</a></li>
+      <li><a href="#cu">Computer Use 実例 3 選</a></li>
       <li><a href="#limits">注意点と制約</a></li>
       <li><a href="#checklist">導入チェックリスト</a></li>
     </ol>
@@ -479,7 +482,7 @@ footer{margin-top:96px;background:var(--ink);color:var(--onink);padding:40px 0;f
     <div class="grid3">
       <div class="feat"><h4>Orca CLI</h4><p>worktree 作成、ターミナルへの送信、ブラウザ操作を <code>orca</code> コマンドで実行。エージェント自身が Orca を操作できます。</p></div>
       <div class="feat"><h4>定期実行（Automations）</h4><p>「平日 9 時に Issue を整理」のような定期プロンプトを登録。事前チェックのコマンドが失敗した回はスキップできます。</p></div>
-      <div class="feat"><h4>オーケストレーション</h4><p>まとめ役のエージェントがタスクを分割し、別のエージェントに割り振って完了報告を受け取る仕組み。実験的機能です（09 で詳述）。</p></div>
+      <div class="feat"><h4>オーケストレーション</h4><p>まとめ役のエージェントがタスクを分割し、別のエージェントに割り振って完了報告を受け取る仕組み。実験的機能です（10 で詳述）。</p></div>
       <div class="feat"><h4>ハイバネーション</h4><p>完了から一定時間（既定 30 分）触っていないエージェントを停止してメモリを空け、開き直すと <code>claude --resume</code> などで自動再開します。実験的機能。</p></div>
       <div class="feat"><h4>Skills</h4><p><code>npx skills add</code> で Orca 用スキルをエージェントに入れると、エージェントが Orca の CLI を正しく使えるようになります。</p></div>
       <div class="feat"><h4>Continue in New Session</h4><p>会話が長くなったら、要約付きの引き継ぎプロンプトで新しいセッションを開始。別のエージェントへの引き継ぎも可能です。</p></div>
@@ -603,9 +606,126 @@ Config/Secrets.xcconfig</pre>
     <p class="note">Linux では、画面読み上げソフト GNOME Orca と名前が重なるため、CLI 名が <code>orca-ide</code> になります。Orca 内のターミナルでは <code>orca</code> のままで動きます。</p>
   </section>
 
-  <!-- 09 -->
+  <!-- 09 resident -->
+  <section class="sec" id="resident">
+    <div class="sechead"><div class="no">09</div><div><h2>目標構成：MacBook 常駐と遠隔承認</h2><p>使用中の MacBook を「本部」にして、ほかのデバイスから見張る</p></div></div>
+    <p><strong>結論：この構成は Orca の標準機能だけで組めます。</strong>押さえる点は 3 つです。MacBook を眠らせないこと、承認が必要な場面を意図して残すこと、そしてほかのデバイスとのつなぎ方を用途で分けることです。エージェント本体、リポジトリ、ログイン情報はすべて MacBook に置き、iPhone や別の PC は「画面と指」の役割だけを担います。</p>
+
+    <figure>
+      <svg viewBox="0 0 960 430" role="img" aria-label="MacBook 常駐と他デバイスからの承認の構成図">
+        <defs>
+          <marker id="a8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#111114"/></marker>
+        </defs>
+        <g style="font-family:'Noto Sans JP',sans-serif;font-feature-settings:'palt' 1">
+          <rect x="300" y="20" width="360" height="390" fill="#111114"/>
+          <text x="324" y="58" font-weight="900" font-size="21" fill="#fff">使用中の MacBook（常駐）</text>
+          <rect x="324" y="78" width="312" height="52" fill="#fff"/>
+          <text x="340" y="110" font-weight="900" font-size="16" fill="#E23E14">Orca デスクトップ</text>
+          <text x="324" y="162" font-weight="700" font-size="14" fill="#fff">バックグラウンドのデーモン</text>
+          <text x="324" y="184" font-weight="500" font-size="13" fill="#C9C9C5">アプリを閉じてもエージェントを保持</text>
+          <text x="324" y="218" font-weight="700" font-size="14" fill="#fff">Claude Code ・ Codex ほか</text>
+          <text x="324" y="240" font-weight="500" font-size="13" fill="#C9C9C5">ログイン情報もここにだけ置く</text>
+          <text x="324" y="274" font-weight="700" font-size="14" fill="#fff">リポジトリ ・ worktree</text>
+          <text x="324" y="296" font-weight="500" font-size="13" fill="#C9C9C5">Drive 同期フォルダ・外付け HDD</text>
+          <text x="324" y="340" font-weight="700" font-size="14" fill="#fff">スリープ防止：Keep computer awake</text>
+          <text x="324" y="362" font-weight="500" font-size="13" fill="#C9C9C5">権限：Manual（承認を残す）</text>
+
+          <rect x="20" y="60" width="230" height="150" fill="none" stroke="#111114" stroke-width="2"/>
+          <text x="40" y="94" font-weight="900" font-size="17" fill="#111114">iPhone ・ iPad</text>
+          <text x="40" y="122" font-weight="700" font-size="14" fill="#111114">Orca モバイル</text>
+          <text x="40" y="146" font-weight="500" font-size="13" fill="#2A2C30">通知を受けて承認・返答</text>
+          <text x="40" y="170" font-weight="500" font-size="13" fill="#2A2C30">差分の確認・コミット</text>
+          <path d="M256 135 L294 135" stroke="#111114" stroke-width="2" marker-start="url(#a8)" marker-end="url(#a8)"/>
+          <text x="40" y="236" font-weight="700" font-size="13" fill="#E23E14">接続：Orca Relay</text>
+          <text x="40" y="256" font-weight="500" font-size="12" fill="#6E6E6A">社外の回線からでもつながる</text>
+
+          <rect x="710" y="60" width="230" height="150" fill="none" stroke="#111114" stroke-width="2"/>
+          <text x="730" y="94" font-weight="900" font-size="17" fill="#111114">別の Mac ・ PC</text>
+          <text x="730" y="122" font-weight="700" font-size="14" fill="#111114">Orca デスクトップ</text>
+          <text x="730" y="146" font-weight="500" font-size="13" fill="#2A2C30">クライアントとして接続</text>
+          <text x="730" y="170" font-weight="500" font-size="13" fill="#2A2C30">大きな画面で差分レビュー</text>
+          <path d="M666 135 L704 135" stroke="#111114" stroke-width="2" marker-start="url(#a8)" marker-end="url(#a8)"/>
+          <text x="730" y="236" font-weight="700" font-size="13" fill="#E23E14">接続：Tailscale</text>
+          <text x="730" y="256" font-weight="500" font-size="12" fill="#6E6E6A">Remote Orca Server 機能（ベータ版）</text>
+
+          <rect x="20" y="300" width="230" height="110" fill="none" stroke="#111114" stroke-width="2"/>
+          <text x="40" y="334" font-weight="900" font-size="15" fill="#111114">移動中・Mac が眠る間</text>
+          <text x="40" y="362" font-weight="500" font-size="13" fill="#2A2C30">Claude Code on the web へ</text>
+          <text x="40" y="384" font-weight="500" font-size="13" fill="#2A2C30">作業を回す</text>
+        </g>
+      </svg>
+      <figcaption><span class="figno">図4</span>処理はすべて MacBook の中で行います。ほかのデバイスに置くのは操作画面だけです。</figcaption>
+    </figure>
+
+    <h3>承認が iPhone に届くまで</h3>
+    <div class="flow">
+      <div><div class="n">1</div><h4>確認を求める</h4><p>Manual 起動のエージェントが、コマンド実行や編集の許可を求める</p></div>
+      <div><div class="n">2</div><h4>状態を検知</h4><p>Orca のフックが「入力待ち」を検知し、サイドバーに琥珀色の「？」</p></div>
+      <div><div class="n">3</div><h4>通知</h4><p>iPhone に「入力待ち」の通知。初期設定では、デスクトップから離れているときだけ届く</p></div>
+      <div><div class="n">4</div><h4>内容を読む</h4><p>Chat UI なら許可や質問がカードで表示。ターミナル表示も選べる</p></div>
+      <div><div class="n">5</div><h4>承認・返答</h4><p>カードの Submit、「yes」などの短文、音声入力で返す</p></div>
+      <div><div class="n">6</div><h4>作業が続く</h4><p>終わると「完了」の通知。差分の確認やコミットもスマホからできる</p></div>
+    </div>
+    <p class="note">スマホに届く通知の種類は「入力待ち」と「完了」の 2 つです（Orca のソースコード <code>src/shared/mobile-push-contract.ts</code> で確認）。「デスクトップから離れているときだけ通知」はモバイルアプリの通知設定で切り替えられ、初期値はオンです。</p>
+
+    <h3>MacBook 側の設定</h3>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>項目</th><th>場所</th><th>推奨値</th><th>理由</th></tr></thead>
+      <tbody>
+        <tr><th>Keep computer awake</th><td>設定 → Agents（ステータスバーのコーヒーアイコンでも切り替え可）</td><td><strong>On</strong>、または <strong>Agent</strong></td><td>On は常にスリープを防ぎ、Agent はエージェント作業中だけ防ぐ。内部では macOS の <code>caffeinate -i -s</code> を使っている</td></tr>
+        <tr><th>Agent Permissions</th><td>設定 → Agents</td><td><strong>Manual</strong></td><td>Yolo のままでは承認の場面そのものが生まれない</td></tr>
+        <tr><th>Agent status hooks</th><td>設定 → Agents</td><td>On</td><td>「入力待ち」の検知と通知はこのフックで動く</td></tr>
+        <tr><th>モバイルとのペアリング</th><td>アカウント・ステータスメニュー</td><td>Orca Relay</td><td>同じ Wi-Fi にいなくてもつながる。Orca へのサインインが必要</td></tr>
+        <tr><th>サーバーとして公開</th><td>設定 → Remote Orca Servers → Advertise this app as a server → New Link</td><td>Tailscale のアドレス（100.x.y.z）</td><td>別の PC からつなぐときだけ設定する。発行したリンクはパスワードと同じ扱い</td></tr>
+        <tr><th>ログイン時に起動</th><td>macOS のシステム設定 → 一般 → ログイン項目</td><td>Orca を追加</td><td>再起動後に自動で常駐に戻る</td></tr>
+        <tr><th>電源</th><td>macOS のシステム設定 → バッテリー → オプション</td><td>「電源アダプタ接続時にディスプレイがオフのときに自動でスリープさせない」をオン</td><td>電源につないで据え置くとき、画面が消えても眠らないようにする</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>何が起きると止まるか</h3>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th>出来事</th><th>エージェント</th><th>ほかのデバイスから</th></tr></thead>
+      <tbody>
+        <tr><th>Orca を Cmd-Q で終了／自動更新の再起動／アプリの異常終了</th><td>動き続ける（デーモンが保持し、次の起動で再接続）</td><td>アプリを開き直すまで接続できない</td></tr>
+        <tr><th>スリープ（蓋を閉じた、など）</th><td>止まる</td><td>接続できない</td></tr>
+        <tr><th>Mac がネットワークから外れた</th><td>動き続ける</td><td>承認も確認もできない</td></tr>
+        <tr><th>再起動・OS アップデート・電源断</th><td>終了する。worktree・画面分割・スクロール履歴は戻るが、エージェントは起動し直しが必要</td><td>Orca が起動し直せば再接続</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="panel">
+      <h4>持ち歩く MacBook ならではの注意</h4>
+      <ul class="dots" style="margin-bottom:0">
+        <li style="color:#C9C9C5"><strong>蓋を閉じると、macOS はスリープします。</strong>Orca のスリープ防止は <code style="color:#fff">caffeinate</code> を使った「放置によるスリープ」の防止で、蓋を閉じたときのスリープまでは止められません。例外は、電源と外部ディスプレイをつないで蓋を閉じる「クラムシェル」運用です。据え置くときは蓋を開けたまま電源につなぎ、画面の明るさだけ落とします。</li>
+        <li style="color:#C9C9C5"><strong>移動中は止まる前提で組みます。</strong>持ち出す前に長い作業を区切り、移動中に進めたい作業は Claude Code on the web に回します。</li>
+        <li style="color:#C9C9C5"><strong>承認待ちのまま放置すると、その作業は止まったままです。</strong>通知を見逃したときは、サイドバーの「要対応」や Agent Dashboard で拾い直します。</li>
+        <li style="color:#C9C9C5"><strong>スマホで承認する範囲を決めておきます。</strong>ファイルの読み取り、テスト実行、手元での編集はスマホで承認し、push・メール送信・削除のような取り消しにくい操作は席に戻ってから判断する、といった線引きです（本資料からの提案）。</li>
+      </ul>
+    </div>
+
+    <h3>Claude Code の Remote Control との違い</h3>
+    <p>Claude Code には、手元の Mac で動くセッションを Claude アプリから操作する Remote Control 機能があります。常駐した Mac を別のデバイスから操作するという点では、目的は同じです。違いは対象の広さにあります。</p>
+    <div class="tblwrap">
+    <table class="tbl">
+      <thead><tr><th></th><th>Claude Code の Remote Control</th><th>Orca モバイル／Remote Orca Server</th></tr></thead>
+      <tbody>
+        <tr><th>操作できるエージェント</th><td>Claude Code のセッション</td><td>Claude Code・Codex など、Orca で起動したすべてのエージェント</td></tr>
+        <tr><th>一覧性</th><td>セッション単位</td><td>全 worktree の状態を 1 画面で一覧（要対応・作業中・完了）</td></tr>
+        <tr><th>スマホでの Git 操作</th><td>エージェントへの指示で行う</td><td>ステージング・コミットを画面から直接操作できる</td></tr>
+        <tr><th>使い分け</th><td>Claude Code だけで完結する作業</td><td>複数のエージェントを並べる作業、使用量の管理</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="note">2 つは同じ MacBook で併用できます。ただし同じ作業を両方から同時に操作すると指示が衝突するため、作業ごとにどちらで操作するかを決めておきます。</p>
+  </section>
+
+  <!-- 10 -->
   <section class="sec" id="orch">
-    <div class="sechead"><div class="no">09</div><div><h2>オーケストレーション</h2><p>エージェントがエージェントを指揮する</p></div></div>
+    <div class="sechead"><div class="no">10</div><div><h2>オーケストレーション</h2><p>エージェントがエージェントを指揮する</p></div></div>
     <p>単発の指示なら <code>orca terminal send</code> で足ります。誰が何を担当し、終わったかどうかを追跡したい場合に使うのがオーケストレーションです。設定 → Experimental で有効化します。</p>
     <figure>
       <svg viewBox="0 0 960 420" role="img" aria-label="オーケストレーションの構造図">
@@ -645,7 +765,7 @@ Config/Secrets.xcconfig</pre>
           <text x="760" y="402" font-weight="500" font-size="13" fill="#2A2C30">question・heartbeat</text>
         </g>
       </svg>
-      <figcaption><span class="figno">図4</span>タスクには依存関係を持たせられます。ワーカーは完了時に必ず 1 回だけ <code>worker_done</code> を送る、という約束事で動きます。</figcaption>
+      <figcaption><span class="figno">図5</span>タスクには依存関係を持たせられます。ワーカーは完了時に必ず 1 回だけ <code>worker_done</code> を送る、という約束事で動きます。</figcaption>
     </figure>
 <pre>orca orchestration run-create --objective "設定画面の改修を分担して進める" --json
 orca orchestration task-create --spec "SettingsView のレイアウト崩れを修正" --task-title "Layout" --json
@@ -656,7 +776,7 @@ orca orchestration check --wait --types worker_done,escalation,question --timeou
 
   <!-- 10 -->
   <section class="sec" id="cli">
-    <div class="sechead"><div class="no">10</div><div><h2>CLI 早見表</h2><p>どれも <code>--json</code> を付けると機械可読な出力になる</p></div></div>
+    <div class="sechead"><div class="no">11</div><div><h2>CLI 早見表</h2><p>どれも <code>--json</code> を付けると機械可読な出力になる</p></div></div>
     <div class="tblwrap">
     <table class="tbl">
       <thead><tr><th>目的</th><th>コマンド</th></tr></thead>
@@ -678,7 +798,7 @@ orca orchestration check --wait --types worker_done,escalation,question --timeou
 
   <!-- 11 -->
   <section class="sec" id="env">
-    <div class="sechead"><div class="no">11</div><div><h2>あなたの環境に当てはめる</h2><p>このリポジトリとセッションから読み取れる範囲で</p></div></div>
+    <div class="sechead"><div class="no">12</div><div><h2>あなたの環境に当てはめる</h2><p>このリポジトリとセッションから読み取れる範囲で</p></div></div>
     <p>以下は、確認できた事実と、そこからの推定を分けて書いています。推定が外れている部分は読み替えてください。</p>
     <div class="grid2">
       <div>
@@ -688,6 +808,8 @@ orca orchestration check --wait --types worker_done,escalation,question --timeou
           <li><code>.gitignore</code> は Xcode・Swift Package Manager・CocoaPods・Carthage・fastlane 向けのテンプレート</li>
           <li><code>docs/</code> に日本語の設計書（ショート動画生成システムのブループリント）がある</li>
           <li>現在は Claude Code on the web（Linux のクラウドコンテナ）から作業している</li>
+          <li><strong>本人の指定：</strong>Orca は使用中の MacBook に常駐させ、ほかのデバイスから操作・承認・確認する構成を目標にしている</li>
+          <li>コードのほかに、Google ドライブの同期フォルダ、外付け HDD、ブラウザ、Excel ファイルを扱う作業（見積もり比較、素材探しなど）にもエージェントを使っている</li>
           <li>claude.ai 側に GitHub・Slack・Gmail・Google カレンダー・Google ドライブ・Adobe のコネクタがつながっている</li>
         </ul>
       </div>
@@ -695,7 +817,7 @@ orca orchestration check --wait --types worker_done,escalation,question --timeou
         <h4>推定</h4>
         <ul class="dots">
           <li>iOS アプリを開発中、またはこれから開発する</li>
-          <li>Xcode とシミュレータを使うため、手元に Mac がある</li>
+          <li>Xcode とシミュレータを使う場合も、常駐先の MacBook で実行できる</li>
           <li>iPhone の Claude アプリからもセッションを確認している</li>
           <li>コードだけでなく、設計書や企画書づくりにもエージェントを使っている</li>
         </ul>
@@ -740,7 +862,7 @@ orca orchestration check --wait --types worker_done,escalation,question --timeou
           <path d="M130 226 L130 360 L294 360" fill="none" stroke="#111114" stroke-width="2" marker-end="url(#a5)"/>
         </g>
       </svg>
-      <figcaption><span class="figno">図5</span>Orca は Claude Code on the web の置き換えではなく、Mac でしかできない作業を引き受ける追加の持ち場です。</figcaption>
+      <figcaption><span class="figno">図6</span>Orca は Claude Code on the web の置き換えではなく、Mac でしかできない作業を引き受ける追加の持ち場です。</figcaption>
     </figure>
 
     <h3>Claude Code on the web との使い分け</h3>
@@ -764,7 +886,7 @@ orca orchestration check --wait --types worker_done,escalation,question --timeou
 
   <!-- 12 -->
   <section class="sec" id="usecase">
-    <div class="sechead"><div class="no">12</div><div><h2>ユースケース 6 選</h2><p>iOS 開発と設計書づくりを軸に</p></div></div>
+    <div class="sechead"><div class="no">13</div><div><h2>ユースケース 6 選</h2><p>iOS 開発と設計書づくりを軸に</p></div></div>
 
     <div class="uc">
       <div class="ucno">ユースケース 1</div>
@@ -808,7 +930,7 @@ SettingsView を SwiftUI で実装してください。
             <path d="M860 106 L860 130 L90 130 L90 106" fill="none" stroke="#111114" stroke-width="2" marker-end="url(#a6)"/>
           </g>
         </svg>
-        <figcaption><span class="figno">図6</span>不具合が見つかれば最初に戻る。この往復をエージェントが自分で回します。</figcaption>
+        <figcaption><span class="figno">図7</span>不具合が見つかれば最初に戻る。この往復をエージェントが自分で回します。</figcaption>
       </figure>
 <pre><span class="c"># エージェントに実行させる一連のコマンド（スキーム名・Bundle ID は実際の値に置き換え）</span>
 xcodebuild -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
@@ -848,7 +970,7 @@ orca emulator kill --json               <span class="c"># 終わったら必ず�
         <li>Orca モバイルで内容を読み、「yes」や追加の指示を返す。音声入力も使える</li>
         <li>小さな修正なら、モバイルの Source Control でステージングとコミットまで済ませる</li>
       </ol>
-      <p class="note">ローカル実行の場合、Mac がスリープすると止まります。外出が長いなら、Mac mini などを Remote Orca Server にするか、作業を Claude Code on the web へ回します。</p>
+      <p class="note">MacBook がスリープすると、エージェントも iPhone からの接続も止まります。常駐させるための設定と、蓋を閉じたときの扱いは <a href="#resident">09 章</a>を参照してください。</p>
     </div>
 
     <div class="uc">
@@ -881,9 +1003,126 @@ orca automations edit &lt;automationId&gt; --enabled --json</pre>
     </div>
   </section>
 
-  <!-- 13 -->
+  <!-- 13 Computer Use -->
+  <section class="sec" id="cu">
+    <div class="sechead"><div class="no">14</div><div><h2>Computer Use 実例 3 選</h2><p>コマンドだけでは届かない作業の例</p></div></div>
+    <p><code>orca computer</code> は、エージェントが Mac のアプリを直接操作するための CLI です。操作対象の特定には、画面の画像ではなくアクセシビリティツリー（ボタンや入力欄の一覧）を使います。ボタンを押す、入力欄に値を入れる、キーを送る、スクロールする、スクリーンショットを撮る、といった操作ができます。現在はベータ版です。</p>
+    <p>公式のスキルは「シェル・ファイル操作・git・HTTP・既存の CLI で済むならそちらを優先し、画面でしか触れないときだけ使う」と定めています。以下の 3 例は、<strong>コマンドだけでは最後まで届かず、画面操作が必要になりやすい場面</strong>を選んだものです。</p>
+
+    <figure>
+      <svg viewBox="0 0 960 250" role="img" aria-label="Computer Use の判断と操作ループ">
+        <defs>
+          <marker id="a7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#111114"/></marker>
+        </defs>
+        <g style="font-family:'Noto Sans JP',sans-serif;font-feature-settings:'palt' 1">
+          <rect x="10" y="80" width="190" height="80" fill="#111114"/>
+          <text x="28" y="114" font-weight="900" font-size="16" fill="#fff">コマンドで</text>
+          <text x="28" y="140" font-weight="900" font-size="16" fill="#fff">済むか？</text>
+          <path d="M106 74 L106 40 L250 40" fill="none" stroke="#111114" stroke-width="2" marker-end="url(#a7)"/>
+          <text x="120" y="30" font-weight="700" font-size="13" fill="#2A2C30">済む</text>
+          <text x="258" y="46" font-weight="700" font-size="15" fill="#111114">シェル・CLI・API で処理（優先）</text>
+          <path d="M206 120 L250 120" stroke="#111114" stroke-width="2" marker-end="url(#a7)"/>
+          <text x="208" y="110" font-weight="700" font-size="13" fill="#E23E14">届かない</text>
+
+          <rect x="258" y="90" width="190" height="64" fill="none" stroke="#111114" stroke-width="2"/>
+          <text x="274" y="118" font-weight="900" font-size="15" fill="#111114">1 状態を読む</text>
+          <text x="274" y="140" font-weight="500" font-size="12" fill="#2A2C30">get-app-state</text>
+          <path d="M452 122 L486 122" stroke="#111114" stroke-width="2" marker-end="url(#a7)"/>
+          <rect x="490" y="90" width="190" height="64" fill="none" stroke="#111114" stroke-width="2"/>
+          <text x="506" y="118" font-weight="900" font-size="15" fill="#111114">2 操作する</text>
+          <text x="506" y="140" font-weight="500" font-size="12" fill="#2A2C30">click / set-value / hotkey</text>
+          <path d="M684 122 L718 122" stroke="#111114" stroke-width="2" marker-end="url(#a7)"/>
+          <rect x="722" y="90" width="228" height="64" fill="none" stroke="#E23E14" stroke-width="2.5"/>
+          <text x="738" y="118" font-weight="900" font-size="15" fill="#111114">3 読み直して確かめる</text>
+          <text x="738" y="140" font-weight="500" font-size="12" fill="#2A2C30">verified 以外は成功扱いしない</text>
+          <path d="M836 160 L836 200 L353 200 L353 160" fill="none" stroke="#111114" stroke-width="2" marker-end="url(#a7)"/>
+          <text x="470" y="226" font-weight="500" font-size="13" fill="#6E6E6A">画面が変わるたびに要素番号は無効になるので、毎回読み直す</text>
+        </g>
+      </svg>
+      <figcaption><span class="figno">図8</span>操作のたびに状態を読み直す。結果が <code>verified</code>（値を読み戻して確認済み）でなければ、成功したとは報告しない決まりです。</figcaption>
+    </figure>
+
+    <h3>最初の設定（1 回だけ）</h3>
+<pre>orca computer permissions --json      <span class="c"># 不足している権限を確認</span>
+orca computer capabilities --json
+npx skills add https://github.com/stablyai/orca --skill computer-use --global</pre>
+    <p class="note">macOS のシステム設定 → プライバシーとセキュリティで、「Orca Computer Use」に<strong>アクセシビリティ</strong>と<strong>画面収録</strong>を許可します。リポジトリに関係しない作業は、どのリポジトリにも属さないターミナルを開ける Floating Workspace（設定 → Floating Workspace で有効化）から始めると、余計な worktree を作らずに済みます。</p>
+
+    <div class="uc">
+      <div class="ucno">実例 1 ・ ブラウザ</div>
+      <h3>Brave のタブグループを、実際に開いて振り分ける</h3>
+      <p class="who">向く場面：消えたタブグループを復元し、実際のブラウザ上で整理し直したいとき</p>
+      <p><strong>なぜ画面操作が要るか。</strong>消えたタブの URL は、ブラウザの保存データからコマンドで掘り出せます。ところが「タブを開いて、グループに分けて、名前を付ける」ところまで進めるには、ブラウザの画面を操作するしかありません。一覧ファイルを書き出すだけでは終わらない、典型的な場面です。</p>
+      <p><strong>Orca での進め方。</strong></p>
+<pre>orca computer list-apps --json                               <span class="c"># Brave の ID（com.brave.Browser）を確認</span>
+orca computer list-windows --app com.brave.Browser --json
+orca computer get-app-state --app com.brave.Browser --window-id &lt;id&gt; --restore-window --json
+<span class="c"># アドレスバーに URL を直接入れて開く（打鍵より set-value が確実）</span>
+orca computer set-value --app com.brave.Browser --element-index &lt;アドレスバー&gt; --value "https://…" --json
+orca computer press-key --app com.brave.Browser --key Return --json
+<span class="c"># タブを右クリック →「タブをグループに追加」→ 状態を読み直してから次のタブへ</span>
+orca computer click --app com.brave.Browser --element-index &lt;タブ&gt; --mouse-button right --json
+orca computer get-app-state --app com.brave.Browser --window-id &lt;id&gt; --json</pre>
+      <ul class="dots">
+        <li>グループ単位で区切り、最初の 1 グループだけ人が確認してから残りを任せる進め方が安全です。</li>
+        <li>タブ数が多いと、ツリーには前面のタブだけが載り、残りは省略されます。グループの付け替えは 1 タブずつ、毎回読み直して進めます。</li>
+        <li>グループ名の入力欄は <code>set-value</code> で入れ、読み戻しで名前を確かめます。</li>
+      </ul>
+    </div>
+
+    <div class="uc">
+      <div class="ucno">実例 2 ・ Finder とプレビュー</div>
+      <h3>Google ドライブ同期フォルダの写真を、目で見て探す</h3>
+      <p class="who">向く場面：撮影素材などの画像を、見た目の条件で大量のフォルダから探したいとき</p>
+      <p><strong>なぜ画面操作が要るか。</strong>「グレー背景で撮った写真」のような条件は、ファイル名や作成日では絞り切れません。ドライブのコネクタ経由では画像の中身を読めないことがあり、同期フォルダ全体を <code>find</code> でたどると時間もかかります。最後に残るのは「見た目で判断する」工程です。</p>
+      <p><strong>Orca での進め方。</strong>候補の絞り込みはコマンドで行い、見た目の確認だけ Finder に任せます。</p>
+<pre><span class="c"># 1. 絞り込みは Spotlight の索引で（find より速い）</span>
+mdfind -onlyin ~/Library/CloudStorage 'kMDItemContentTypeTree == "public.image" &amp;&amp; kMDItemFSCreationDate &gt;= $time.iso(2024-12-01)'
+
+<span class="c"># 2. 候補フォルダを Finder のギャラリー表示で開き、画面ごと確認する</span>
+open -a Finder "&lt;候補フォルダ&gt;"
+orca computer get-app-state --app com.apple.finder --restore-window --json   <span class="c"># スクリーンショットの保存先が返る</span>
+orca computer hotkey --app com.apple.finder --key CmdOrCtrl+4 --json        <span class="c"># ギャラリー表示</span>
+orca computer press-key --app com.apple.finder --key Right --json           <span class="c"># 1 枚ずつ送る</span></pre>
+      <ul class="dots">
+        <li>ドライブ側で「オンラインのみ」にしているファイルは、プレビューした時点でダウンロードが走ります。件数が多いときは先にフォルダを絞ります。</li>
+        <li>移動・削除・共有設定の変更はさせません。公式スキルも、頼まれていない削除や設定変更を禁じています。</li>
+        <li>外付け HDD（<code>/Volumes/…</code>）も同じ手順で確認できます。</li>
+      </ul>
+    </div>
+
+    <div class="uc">
+      <div class="ucno">実例 3 ・ Excel</div>
+      <h3>見積書の Excel を開いて、計算エラーと見た目を確かめる</h3>
+      <p class="who">向く場面：見積書や集計表の Excel を、提出前に確かめたいとき</p>
+      <p><strong>なぜ画面操作が要るか。</strong>エージェントが Python で作った Excel は、数式を書けても計算結果までは持ちません。参照先が壊れて <code>#REF!</code> になっているセルも、Excel で開いて再計算させないと見つかりません。提出できる状態かどうかは、実際に開いて確かめる必要があります。</p>
+      <p><strong>Orca での進め方。</strong></p>
+<pre>open -a "Microsoft Excel" "見積比較.xlsx"
+orca computer get-app-state --app com.microsoft.Excel --restore-window --json
+orca computer hotkey --app com.microsoft.Excel --key CmdOrCtrl+F --json      <span class="c"># 検索窓を開く</span>
+orca computer set-value --app com.microsoft.Excel --element-index &lt;検索欄&gt; --value "#REF!" --json
+orca computer press-key --app com.microsoft.Excel --key Return --json
+orca computer get-app-state --app com.microsoft.Excel --json                 <span class="c"># 該当セルと画面を確認</span></pre>
+      <ul class="dots">
+        <li>エラーのあったシート名・セル番地・元の数式を一覧にして報告させます。直すかどうかは人が決めます。</li>
+        <li>列幅や改ページなど「見た目の崩れ」は、スクリーンショットで確認させると早く済みます。</li>
+        <li>PDF 書き出しまでは任せても、取引先への送信はさせません。送信やフォームの提出は、明示的に頼まない限り行わない決まりです。</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h4>3 例に共通する注意</h4>
+      <ul class="dots" style="margin-bottom:0">
+        <li style="color:#C9C9C5">パスワードなどの秘密情報を入力させるときは、<code style="color:#fff">--value-stdin</code> や <code style="color:#fff">--text-stdin</code> で渡し、シェルの履歴に残さない。</li>
+        <li style="color:#C9C9C5">結果が <code style="color:#fff">unverified</code> のときは、送信・削除・購入などの効果が<strong>確認できていない</strong>ものとして扱う。</li>
+        <li style="color:#C9C9C5">Computer Use は手元の Mac の画面を操作します。作業中に人がマウスを動かすと結果がずれるため、席を外す時間帯に任せるのが向いています。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 14 -->
   <section class="sec" id="limits">
-    <div class="sechead"><div class="no">13</div><div><h2>注意点と制約</h2><p>導入前に知っておくと困らないこと</p></div></div>
+    <div class="sechead"><div class="no">15</div><div><h2>注意点と制約</h2><p>導入前に知っておくと困らないこと</p></div></div>
     <div class="grid2">
       <div>
         <h4>iOS 開発ならではの注意</h4>
@@ -907,9 +1146,9 @@ orca automations edit &lt;automationId&gt; --enabled --json</pre>
     </div>
   </section>
 
-  <!-- 14 -->
+  <!-- 15 -->
   <section class="sec" id="checklist">
-    <div class="sechead"><div class="no">14</div><div><h2>導入チェックリスト</h2><p>上から順に進めれば初日に使い始められる</p></div></div>
+    <div class="sechead"><div class="no">16</div><div><h2>導入チェックリスト</h2><p>上から順に進めれば初日に使い始められる</p></div></div>
     <ul class="check">
       <li><input type="checkbox" id="c1"><label for="c1"><code>brew install --cask stablyai/orca/orca</code> で Orca を入れた</label></li>
       <li><input type="checkbox" id="c2"><label for="c2">Claude Code と Codex を入れ、普通のターミナルで一度ログインした</label></li>
@@ -920,7 +1159,12 @@ orca automations edit &lt;automationId&gt; --enabled --json</pre>
       <li><input type="checkbox" id="c7"><label for="c7"><code>iosrepo</code> を Add Repo で追加し、<code>orca.yaml</code> と <code>.worktreeinclude</code> を用意した</label></li>
       <li><input type="checkbox" id="c8"><label for="c8">worktree を 3 本作り、3 エージェントの競作を 1 回やってみた</label></li>
       <li><input type="checkbox" id="c9"><label for="c9"><code>orca emulator attach</code> でシミュレータにつながることを確かめた</label></li>
+      <li><input type="checkbox" id="c13"><label for="c13">Keep computer awake を On（または Agent）にし、MacBook を電源につないで蓋を開けたまま据え置いた</label></li>
+      <li><input type="checkbox" id="c14"><label for="c14">macOS のログイン項目に Orca を追加した</label></li>
+      <li><input type="checkbox" id="c15"><label for="c15">iPhone で「入力待ち」の通知を受け取り、承認できることを試した</label></li>
+      <li><input type="checkbox" id="c16"><label for="c16">（別の PC からも使う場合）Tailscale を入れ、Remote Orca Servers で接続した</label></li>
       <li><input type="checkbox" id="c10"><label for="c10">iPhone に Orca モバイルを入れてペアリングした</label></li>
+      <li><input type="checkbox" id="c12"><label for="c12">Computer Use の権限（アクセシビリティ・画面収録）を許可し、<code>orca computer permissions --json</code> で確認した</label></li>
       <li><input type="checkbox" id="c11"><label for="c11">匿名統計の送信をどうするか決めた</label></li>
     </ul>
   </section>
@@ -930,8 +1174,10 @@ orca automations edit &lt;automationId&gt; --enabled --json</pre>
     <div class="sechead"><div class="no">—</div><div><h2>出典</h2><p>2026 年 10 月 1 日に確認</p></div></div>
     <ul class="src dots">
       <li>GitHub リポジトリ stablyai/orca（README、<code>package.json</code> の版番号 1.4.214、<code>orca.yaml</code>、<code>skill-guides/orca-emulator.md</code>）<br><a href="https://github.com/stablyai/orca">https://github.com/stablyai/orca</a></li>
-      <li>公式ドキュメント（リポジトリ内 <code>docs/site/content/docs/</code> と同一内容）<br><a href="https://www.onorca.dev/docs">https://www.onorca.dev/docs</a> — What is Orca? / Install / Your first 3-agent session / Worktrees / Agents &amp; sessions / Supported agents / Claude Code in Orca / Codex in Orca / Ways to run Orca / SSH worktrees / Mobile companion / Orca CLI overview / Orchestration / Scheduled automations / Skills registry &amp; MCP / Worktree checkpoints / Design Mode / Annotate AI Diff / Attribution / Usage &amp; rate-limit tracking / Agent hooks &amp; memory / Agent hibernation / Chat UI / Notifications / Quick Open / Privacy &amp; Telemetry</li>
-      <li>Y Combinator 企業ページ Stably AI (Orca)<br><a href="https://www.ycombinator.com/companies/stably-ai-orca">https://www.ycombinator.com/companies/stably-ai-orca</a></li>
+      <li>公式ドキュメント（リポジトリ内 <code>docs/site/content/docs/</code> と同一内容）<br><a href="https://www.onorca.dev/docs">https://www.onorca.dev/docs</a> — What is Orca? / Install / Your first 3-agent session / Worktrees / Agents &amp; sessions / Supported agents / Claude Code in Orca / Codex in Orca / Ways to run Orca / SSH worktrees / Mobile companion / Orca CLI overview / Orchestration / Scheduled automations / Skills registry &amp; MCP / Worktree checkpoints / Design Mode / Annotate AI Diff / Attribution / Usage &amp; rate-limit tracking / Agent hooks &amp; memory / Agent hibernation / Chat UI / Notifications / Quick Open / Privacy &amp; Telemetry / Computer use / Remote Orca Servers / Session restore / Settings</li>
+      <li>Orca ソースコード：<code>src/shared/mobile-push-contract.ts</code>（通知の種類）、<code>src/main/agent-awake-service.ts</code>（スリープ防止の実装）、<code>mobile/src/notifications/notification-delivery-preferences.ts</code>（通知の初期設定）</li>
+      <li>Orca 公式スキル <code>skill-guides/computer-use.md</code>（操作ルール、verified / unverified の定義、アプリ別の注意）</li>
+            <li>Y Combinator 企業ページ Stably AI (Orca)<br><a href="https://www.ycombinator.com/companies/stably-ai-orca">https://www.ycombinator.com/companies/stably-ai-orca</a></li>
     </ul>
   </section>
 
