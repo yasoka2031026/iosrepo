@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "LiveYaku (ライブ訳) - Steam JP Translation [MVP/PoC]",
+  "version": "0.1.0",
+  "description": "Steam日本語未対応タイトル向けリアルタイム和訳オーバーレイ - パイプラインPoC(hook-dll/オーバーレイ描画は未実装)。docs/steam-jp-realtime-translation-blueprint.md参照。",
+  "permissions": ["storage", "nativeMessaging"],
+  "background": {
+    "service_worker": "background/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+  "options_page": "options/options.html"
+}

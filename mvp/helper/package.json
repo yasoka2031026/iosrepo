@@ -1,0 +1,22 @@
+{
+  "name": "liveyaku-helper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LiveYaku local helper: translation pipeline PoC (see /docs/steam-jp-realtime-translation-blueprint.md). The real Windows-native hook-injector/hook-dll (DLL injection into game processes) is NOT implemented here — this sandbox cannot build or run Windows-native code. capture/mockCaptureSource.ts stands in for it.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && mkdir -p dist/data && cp src/data/*.json dist/data/",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

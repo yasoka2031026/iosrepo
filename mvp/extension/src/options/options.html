@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>LiveYaku 設定・用語集</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; color: #111; }
+      h1 { font-size: 18px; }
+      h2 { font-size: 14px; margin-top: 28px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+      th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ddd; }
+      form.add-form { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+      form.add-form input { padding: 6px 8px; font-size: 13px; border: 1px solid #ccc; }
+      button { padding: 6px 12px; font-size: 13px; cursor: pointer; }
+      #status-banner { padding: 8px 12px; font-size: 13px; border-radius: 4px; margin-bottom: 16px; }
+      #status-banner.disconnected { background: #fdecea; color: #b71c1c; }
+      #status-banner.connected { background: #e8f5e9; color: #1b5e20; }
+    </style>
+  </head>
+  <body>
+    <h1>LiveYaku 設定 (MVP/PoC)</h1>
+    <div id="status-banner">確認中...</div>
+
+    <h2>用語集 (C3)</h2>
+    <table>
+      <thead>
+        <tr><th>ゲームID</th><th>原語</th><th>訳語</th><th></th></tr>
+      </thead>
+      <tbody id="glossary-rows"></tbody>
+    </table>
+    <form class="add-form" id="add-form">
+      <input type="text" id="game-id" placeholder="ゲームID(空=グローバル)" />
+      <input type="text" id="source-term" placeholder="原語" required />
+      <input type="text" id="translated-term" placeholder="訳語" required />
+      <button type="submit">追加</button>
+    </form>
+
+    <script type="module" src="./options.js"></script>
+  </body>
+</html>
