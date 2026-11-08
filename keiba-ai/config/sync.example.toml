@@ -1,0 +1,5 @@
+# 同期先の設定の見本。sync.local.toml にコピーして値を入れる(sync.local.toml はコミットしない)
+[google_drive]
+account = "you@example.com"
+# Google ドライブ for desktop でこのアカウントにログインしたあと、マイドライブ側の同期先フォルダ
+folder = "KEIBA-EV/data"
